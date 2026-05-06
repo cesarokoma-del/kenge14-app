@@ -1,42 +1,35 @@
 import Link from 'next/link'
-import { useRouter } from 'next/router'
 
 export default function Navigation({ activePage }) {
-  const router = useRouter()
-  
-  const navItems = [
-    { name: 'Tableau de bord', icon: '🏠', href: '/' },
-    { name: 'Appartements', icon: '🏢', href: '/appartements' },
-    { name: 'Suivi Locataires', icon: '👥', href: '/locataires' },
-    { name: 'Paiements', icon: '💰', href: '/paiements' },
-    { name: 'Dépenses', icon: '📊', href: '/depenses' },
-    { name: 'Contrats', icon: '📄', href: '/contrats' },
-    { name: 'Renouvellements', icon: '🔄', href: '/renouvellements' },
+  const items = [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '🏠', path: '/' },
+    { id: 'appartements', label: 'Appartements', icon: '🏢', path: '/appartements' },
+    { id: 'demandes', label: 'Demandes', icon: '📝', path: '/demandes' },
+    { id: 'locataires', label: 'Locataires', icon: '👥', path: '/locataires' },
+    { id: 'contrats', label: 'Contrats', icon: '📄', path: '/contrats' },
+    { id: 'paiements', label: 'Paiements', icon: '💰', path: '/paiements' },
+    { id: 'depenses', label: 'Dépenses', icon: '📊', path: '/depenses' },
+    { id: 'renouvellements', label: 'Renouvellements', icon: '🔄', path: '/renouvellements' },
   ]
-  
+
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex space-x-1 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = router.pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  px-6 py-4 font-medium border-b-4 transition-all whitespace-nowrap
-                  ${isActive
-                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
-                    : 'border-transparent text-gray-600 hover:text-emerald-600'
-                  }
-                `}
-              >
-                <span className="mr-2">{item.icon}</span>
-                {item.name}
-              </Link>
-            )
-          })}
+    <nav className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex overflow-x-auto">
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              href={item.path}
+              className={`flex items-center gap-2 px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition ${
+                activePage === item.id
+                  ? 'border-emerald-600 text-emerald-700 bg-emerald-50'
+                  : 'border-transparent text-gray-600 hover:text-emerald-700 hover:bg-gray-50'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
         </div>
       </div>
     </nav>

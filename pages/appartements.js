@@ -23,16 +23,44 @@ export default function Appartements() {
 
   async function chargerAppartements() {
     setLoading(true)
-    const { data, error } = await supabase
+
+    // Récupérer les appartements avec leurs contrats actifs et demandes en attente
+    const { data: apptsData } = await supabase
       .from('appartements')
-      .select('*')
+      .select(`
+        *,
+        contrats(id, statut, locataire:locataires(noms_complet)),
+        demandes_location(id, statut, noms_complet)
+      `)
       .order('nom')
 
-    if (error) {
-      console.error('Erreur chargement appartements:', error)
-    } else {
-      setAppartements(data || [])
-    }
+    // Calculer le statut "réel" de chaque appartement
+    const apptsAvecStatut = (apptsData || []).map(appt => {
+      const contratActif = appt.contrats?.find(c => c.statut === 'actif')
+      const demandeApprouvee = appt.demandes_location?.find(d => d.statut === 'approuvee')
+
+      let statutCalcule = appt.statut
+
+      // Si "en_renovation", on garde ce statut (manuel)
+      if (appt.statut !== 'en_renovation') {
+        if (contratActif) {
+          statutCalcule = 'loue'
+        } else if (demandeApprouvee) {
+          statutCalcule = 'reserve'
+        } else {
+          statutCalcule = 'vacant'
+        }
+      }
+
+      return {
+        ...appt,
+        statutCalcule,
+        locataireActuel: contratActif?.locataire?.noms_complet || null,
+        demandeReservee: demandeApprouvee?.noms_complet || null
+      }
+    })
+
+    setAppartements(apptsAvecStatut)
     setLoading(false)
   }
 
@@ -43,6 +71,11 @@ export default function Appartements() {
       ...formData,
       superficie: formData.superficie ? parseFloat(formData.superficie) : null,
       loyer_mensuel: parseFloat(formData.loyer_mensuel)
+    }
+
+    // Si on ajoute un nouvel appartement, statut par défaut "vacant"
+    if (!editingId) {
+      dataToSave.statut = 'vacant'
     }
 
     if (editingId) {
@@ -84,7 +117,12 @@ export default function Appartements() {
     setShowForm(true)
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id, statut) {
+    if (statut === 'loue') {
+      alert('❌ Impossible de supprimer un appartement loué. Terminez d\'abord le contrat.')
+      return
+    }
+
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet appartement ?')) return
 
     const { error } = await supabase
@@ -94,6 +132,27 @@ export default function Appartements() {
 
     if (error) {
       alert('Erreur lors de la suppression: ' + error.message)
+      return
+    }
+
+    chargerAppartements()
+  }
+
+  async function toggleRenovation(appartement) {
+    const nouveauStatut = appartement.statut === 'en_renovation' ? 'vacant' : 'en_renovation'
+
+    if (appartement.statutCalcule === 'loue') {
+      alert('❌ Impossible de mettre en rénovation un appartement loué.')
+      return
+    }
+
+    const { error } = await supabase
+      .from('appartements')
+      .update({ statut: nouveauStatut })
+      .eq('id', appartement.id)
+
+    if (error) {
+      alert('Erreur: ' + error.message)
       return
     }
 
@@ -112,6 +171,16 @@ export default function Appartements() {
     })
     setEditingId(null)
     setShowForm(false)
+  }
+
+  function getStatutBadge(statut) {
+    const config = {
+      vacant: { label: '🟡 Vacant', class: 'bg-yellow-100 text-yellow-800' },
+      reserve: { label: '🔵 Réservé', class: 'bg-blue-100 text-blue-800' },
+      loue: { label: '🟢 Loué', class: 'bg-emerald-100 text-emerald-800' },
+      en_renovation: { label: '🟠 En rénovation', class: 'bg-orange-100 text-orange-800' }
+    }
+    return config[statut] || config.vacant
   }
 
   if (loading) {
@@ -136,6 +205,15 @@ export default function Appartements() {
         </button>
       </div>
 
+      {/* Info logique */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-blue-800">
+          ℹ️ <strong>Logique automatique :</strong> Le statut d'un appartement est calculé automatiquement :
+          🟡 Vacant (par défaut) → 🔵 Réservé (demande approuvée) → 🟢 Loué (contrat actif).
+          Vous pouvez toggle manuellement 🟠 En rénovation.
+        </p>
+      </div>
+
       {/* Formulaire */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 mb-6">
@@ -152,7 +230,7 @@ export default function Appartements() {
                 required
                 value={formData.nom}
                 onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -165,7 +243,7 @@ export default function Appartements() {
                 value={formData.adresse}
                 onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                 placeholder="KENGE 14, Kinshasa"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -214,21 +292,6 @@ export default function Appartements() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Statut
-              </label>
-              <select
-                value={formData.statut}
-                onChange={(e) => setFormData({ ...formData, statut: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="vacant">Vacant</option>
-                <option value="loue">Loué</option>
-                <option value="en_renovation">En rénovation</option>
-              </select>
-            </div>
-
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description / Notes
@@ -268,63 +331,73 @@ export default function Appartements() {
 
         {appartements.length === 0 ? (
           <p className="text-center text-gray-500 py-8">
-            Aucun appartement enregistré. Cliquez sur "Ajouter un Appartement" pour commencer.
+            Aucun appartement enregistré.
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {appartements.map((appt) => (
-              <div
-                key={appt.id}
-                className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-bold text-gray-800">{appt.nom}</h3>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      appt.statut === 'loue'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : appt.statut === 'vacant'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-orange-100 text-orange-800'
-                    }`}
-                  >
-                    {appt.statut === 'loue' ? 'Loué' : appt.statut === 'vacant' ? 'Vacant' : 'Rénovation'}
-                  </span>
+            {appartements.map((appt) => {
+              const badge = getStatutBadge(appt.statutCalcule)
+              return (
+                <div
+                  key={appt.id}
+                  className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-bold text-gray-800">{appt.nom}</h3>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.class}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  {appt.locataireActuel && (
+                    <p className="text-sm bg-emerald-50 text-emerald-800 px-2 py-1 rounded mb-2">
+                      👤 {appt.locataireActuel}
+                    </p>
+                  )}
+                  {appt.demandeReservee && !appt.locataireActuel && (
+                    <p className="text-sm bg-blue-50 text-blue-800 px-2 py-1 rounded mb-2">
+                      📝 Réservé pour {appt.demandeReservee}
+                    </p>
+                  )}
+
+                  {appt.adresse && <p className="text-sm text-gray-600 mb-1">📍 {appt.adresse}</p>}
+                  {appt.type && <p className="text-sm text-gray-600 mb-1">🏠 {appt.type.replace('_', ' ')}</p>}
+                  {appt.superficie && <p className="text-sm text-gray-600 mb-1">📐 {appt.superficie} m²</p>}
+                  <p className="text-lg font-bold text-emerald-700 mt-2">
+                    💰 {appt.loyer_mensuel} USD/mois
+                  </p>
+
+                  {appt.description && (
+                    <p className="text-sm text-gray-500 mt-2 italic">{appt.description}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => handleEdit(appt)}
+                      className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
+                    >
+                      ✏️ Modifier
+                    </button>
+                    {appt.statutCalcule !== 'loue' && appt.statutCalcule !== 'reserve' && (
+                      <button
+                        onClick={() => toggleRenovation(appt)}
+                        className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
+                      >
+                        {appt.statut === 'en_renovation' ? '✅ Fin rénov' : '🔧 Rénov'}
+                      </button>
+                    )}
+                    {appt.statutCalcule === 'vacant' && (
+                      <button
+                        onClick={() => handleDelete(appt.id, appt.statutCalcule)}
+                        className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                {appt.adresse && (
-                  <p className="text-sm text-gray-600 mb-1">📍 {appt.adresse}</p>
-                )}
-                {appt.type && (
-                  <p className="text-sm text-gray-600 mb-1">🏠 {appt.type.replace('_', ' ')}</p>
-                )}
-                {appt.superficie && (
-                  <p className="text-sm text-gray-600 mb-1">📐 {appt.superficie} m²</p>
-                )}
-                <p className="text-lg font-bold text-emerald-700 mt-2">
-                  💰 {appt.loyer_mensuel} USD/mois
-                </p>
-
-                {appt.description && (
-                  <p className="text-sm text-gray-500 mt-2 italic">{appt.description}</p>
-                )}
-
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => handleEdit(appt)}
-                    className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
-                  >
-                    ✏️ Modifier
-                  </button>
-                  <button
-                    onClick={() => handleDelete(appt.id)}
-                    className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
-                  >
-                    🗑️ Supprimer
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
