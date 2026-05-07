@@ -40,7 +40,6 @@ export default function FormulaireDemande() {
 
     setAppartements(appts || [])
 
-    // Pré-sélectionner l'appartement si l'URL contient ?apt=ID
     if (apt) {
       const appartSelectionne = appts?.find(a => a.id === apt)
       if (appartSelectionne) {
@@ -108,13 +107,11 @@ export default function FormulaireDemande() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white rounded-t-2xl p-6 shadow-lg">
           <h1 className="text-3xl font-bold">KENGE14</h1>
           <p className="text-emerald-100">Formulaire de demande de location</p>
         </div>
 
-        {/* Form */}
         <div className="bg-white rounded-b-2xl shadow-2xl p-6">
           <p className="text-gray-600 mb-6">
             👋 Bienvenue ! Remplissez ce formulaire pour postuler à un de nos appartements à Kinshasa.
@@ -125,7 +122,7 @@ export default function FormulaireDemande() {
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-emerald-800">
                 🏢 Vous postulez pour : <strong>{appartement.nom}</strong>
-                {' '}({appartement.loyer_mensuel} USD/mois)
+                {' '}({appartement.loyer_base} USD/mois)
               </p>
             </div>
           )}
@@ -135,150 +132,64 @@ export default function FormulaireDemande() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 🏢 Appartement souhaité *
               </label>
-              <select
-                required
-                value={formData.appartement_id}
-                onChange={(e) => setFormData({ ...formData, appartement_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              >
+              <select required value={formData.appartement_id} onChange={(e) => setFormData({ ...formData, appartement_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                 <option value="">-- Sélectionner un appartement --</option>
                 {appartements.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.nom} - {a.loyer_mensuel} USD/mois ({a.type?.replace('_', ' ') || 'Type non spécifié'})
+                    {a.nom} - {a.loyer_base} USD/mois
+                    {a.chambres > 0 && ` (${a.chambres} chambre${a.chambres > 1 ? 's' : ''})`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Noms complets *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.noms_complet}
-                onChange={(e) => setFormData({ ...formData, noms_complet: e.target.value })}
-                placeholder="Prénom et nom de famille"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Noms complets *</label>
+              <input type="text" required value={formData.noms_complet} onChange={(e) => setFormData({ ...formData, noms_complet: e.target.value })} placeholder="Prénom et nom de famille" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  📱 Téléphone (WhatsApp) *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.telephone}
-                  onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
-                  placeholder="+243 XXX XXX XXX"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">📱 Téléphone (WhatsApp) *</label>
+                <input type="tel" required value={formData.telephone} onChange={(e) => setFormData({ ...formData, telephone: e.target.value })} placeholder="+243 XXX XXX XXX" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ✉️ Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">✉️ Email</label>
+                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                💼 Profession / Activité *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.profession}
-                onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
-                placeholder="Ex: Enseignant, Commerçant, Fonctionnaire..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">💼 Profession / Activité *</label>
+              <input type="text" required value={formData.profession} onChange={(e) => setFormData({ ...formData, profession: e.target.value })} placeholder="Ex: Enseignant, Commerçant, Fonctionnaire..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                📍 Adresse actuelle *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.adresse_actuelle}
-                onChange={(e) => setFormData({ ...formData, adresse_actuelle: e.target.value })}
-                placeholder="Ex: Avenue X, Commune Y, Kinshasa"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">📍 Adresse actuelle *</label>
+              <input type="text" required value={formData.adresse_actuelle} onChange={(e) => setFormData({ ...formData, adresse_actuelle: e.target.value })} placeholder="Ex: Avenue X, Commune Y, Kinshasa" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  👨‍👩‍👧 Nombre d'occupants *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={formData.nombre_occupants}
-                  onChange={(e) => setFormData({ ...formData, nombre_occupants: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">👨‍👩‍👧 Nombre d'occupants *</label>
+                <input type="number" required min="1" value={formData.nombre_occupants} onChange={(e) => setFormData({ ...formData, nombre_occupants: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  📅 Date d'emménagement
-                </label>
-                <input
-                  type="date"
-                  value={formData.date_debut_souhaitee}
-                  onChange={(e) => setFormData({ ...formData, date_debut_souhaitee: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date d'emménagement</label>
+                <input type="date" value={formData.date_debut_souhaitee} onChange={(e) => setFormData({ ...formData, date_debut_souhaitee: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ⏱️ Durée (mois)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.duree_souhaitee_mois}
-                  onChange={(e) => setFormData({ ...formData, duree_souhaitee_mois: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">⏱️ Durée (mois)</label>
+                <input type="number" min="1" value={formData.duree_souhaitee_mois} onChange={(e) => setFormData({ ...formData, duree_souhaitee_mois: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                💬 Message / Informations complémentaires
-              </label>
-              <textarea
-                value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                rows={4}
-                placeholder="Présentez-vous, expliquez votre situation, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">💬 Message / Informations complémentaires</label>
+              <textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} placeholder="Présentez-vous, expliquez votre situation, etc." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition disabled:opacity-50">
               {loading ? 'Envoi en cours...' : '✅ Envoyer ma demande'}
             </button>
 

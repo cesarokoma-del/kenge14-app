@@ -27,45 +27,54 @@ export default function TableauDeBord() {
   async function chargerDonnees() {
     setLoading(true)
 
-    // 1. Récupérer les appartements avec contrats et demandes
+    // Charger toutes les données séparément (plus robuste)
     const { data: apptsData } = await supabase
       .from('appartements')
-      .select(`
-        *,
-        contrats(id, statut, loyer, date_fin),
-        demandes_location(id, statut)
-      `)
+      .select('*')
 
-    // 2. Récupérer les paiements du mois en cours
+    const { data: contratsData } = await supabase
+      .from('contrats')
+      .select('*')
+
+    const { data: locatairesData } = await supabase
+      .from('locataires')
+      .select('id, noms_complet')
+
     const debutMois = new Date()
     debutMois.setDate(1)
     debutMois.setHours(0, 0, 0, 0)
 
     const { data: paiementsData } = await supabase
       .from('paiements')
-      .select(`
-        *,
-        contrat:contrats(
-          appartement:appartements(nom),
-          locataire:locataires(noms_complet)
-        )
-      `)
+      .select('*')
       .gte('date_paiement', debutMois.toISOString())
       .order('date_paiement', { ascending: false })
       .limit(5)
 
-    // 3. Récupérer les demandes en attente
     const { data: demandesData } = await supabase
       .from('demandes_location')
-      .select(`
-        *,
-        appartement:appartements(nom)
-      `)
+      .select('*')
       .eq('statut', 'en_attente')
       .order('date_demande', { ascending: false })
       .limit(5)
 
-    // Calculer les statistiques
+    // Enrichir les paiements avec les infos de contrat/locataire/appartement
+    const paiementsEnrichis = (paiementsData || []).map(p => {
+      const contrat = contratsData?.find(c => c.id === p.contrat_id)
+      const locataire = contrat ? locatairesData?.find(l => l.id === contrat.locataire_id) : null
+      const appartement = contrat ? apptsData?.find(a => a.id === contrat.appartement_id) : null
+      return {
+        ...p,
+        contrat: contrat ? { ...contrat, locataire, appartement } : null
+      }
+    })
+
+    // Enrichir les demandes avec les appartements
+    const demandesEnrichies = (demandesData || []).map(d => ({
+      ...d,
+      appartement: apptsData?.find(a => a.id === d.appartement_id) || null
+    }))
+
     let loues = 0, vacants = 0, reserves = 0, enRenovation = 0
     let revenuMensuelAttendu = 0
     let contratsExpirant = 0
@@ -75,17 +84,15 @@ export default function TableauDeBord() {
     dans90Jours.setDate(aujourdhui.getDate() + 90)
 
     ;(apptsData || []).forEach(appt => {
-      const contratActif = appt.contrats?.find(c => c.statut === 'actif')
-      const demandeApprouvee = appt.demandes_location?.find(d => d.statut === 'approuvee')
+      const contratActif = contratsData?.find(c => c.appartement_id === appt.id && c.statut === 'actif')
+      const demandeApprouvee = demandesData?.find(d => d.appartement_id === appt.id && d.statut === 'approuvee')
 
-      // Calcul du statut réel
       if (appt.statut === 'en_renovation') {
         enRenovation++
       } else if (contratActif) {
         loues++
         revenuMensuelAttendu += parseFloat(contratActif.loyer || 0)
 
-        // Vérifier si le contrat expire dans 90 jours
         if (contratActif.date_fin) {
           const dateFin = new Date(contratActif.date_fin)
           if (dateFin >= aujourdhui && dateFin <= dans90Jours) {
@@ -99,22 +106,17 @@ export default function TableauDeBord() {
       }
     })
 
-    // Calculer le revenu reçu ce mois
     const revenuMensuelRecu = (paiementsData || [])
       .reduce((sum, p) => sum + parseFloat(p.montant || 0), 0)
 
-    // Calculer les loyers en retard (contrats actifs sans paiement ce mois après le 5)
     let loyersEnRetard = 0
     const jourActuel = aujourdhui.getDate()
 
     if (jourActuel > 5) {
-      // Pour chaque appartement loué, vérifier s'il y a eu un paiement ce mois
       ;(apptsData || []).forEach(appt => {
-        const contratActif = appt.contrats?.find(c => c.statut === 'actif')
+        const contratActif = contratsData?.find(c => c.appartement_id === appt.id && c.statut === 'actif')
         if (contratActif) {
-          const aPayeCeMois = (paiementsData || []).some(p =>
-            p.contrat?.appartement?.nom === appt.nom
-          )
+          const aPayeCeMois = (paiementsData || []).some(p => p.contrat_id === contratActif.id)
           if (!aPayeCeMois) {
             loyersEnRetard++
           }
@@ -124,19 +126,14 @@ export default function TableauDeBord() {
 
     setStats({
       totalAppartements: apptsData?.length || 0,
-      loues,
-      vacants,
-      reserves,
-      enRenovation,
-      revenuMensuelAttendu,
-      revenuMensuelRecu,
-      loyersEnRetard,
+      loues, vacants, reserves, enRenovation,
+      revenuMensuelAttendu, revenuMensuelRecu, loyersEnRetard,
       demandesEnAttente: demandesData?.length || 0,
       contratsExpirant
     })
 
-    setPaiementsRecents(paiementsData || [])
-    setDemandesRecentes(demandesData || [])
+    setPaiementsRecents(paiementsEnrichis)
+    setDemandesRecentes(demandesEnrichies)
     setLoading(false)
   }
 
@@ -154,7 +151,6 @@ export default function TableauDeBord() {
     <Layout activePage="dashboard">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Tableau de Bord</h1>
 
-      {/* Alertes importantes */}
       {(stats.demandesEnAttente > 0 || stats.contratsExpirant > 0 || stats.loyersEnRetard > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           {stats.demandesEnAttente > 0 && (
@@ -181,7 +177,6 @@ export default function TableauDeBord() {
         </div>
       )}
 
-      {/* Cartes statistiques principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-200">
           <div className="flex items-center justify-between mb-2">
@@ -230,59 +225,44 @@ export default function TableauDeBord() {
         </div>
       </div>
 
-      {/* Demandes en attente */}
       {demandesRecentes.length > 0 && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-yellow-200 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">📝 Demandes en attente</h2>
-            <Link href="/demandes" className="text-sm text-emerald-600 hover:underline">
-              Voir tout →
-            </Link>
+            <Link href="/demandes" className="text-sm text-emerald-600 hover:underline">Voir tout →</Link>
           </div>
           <div className="space-y-2">
             {demandesRecentes.map((d) => (
               <div key={d.id} className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
                 <div>
                   <p className="font-semibold">{d.noms_complet}</p>
-                  <p className="text-sm text-gray-600">
-                    {d.appartement?.nom || '?'} • {d.telephone}
-                  </p>
+                  <p className="text-sm text-gray-600">{d.appartement?.nom || '?'} • {d.telephone}</p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {new Date(d.date_demande).toLocaleDateString('fr-FR')}
-                </p>
+                <p className="text-xs text-gray-500">{new Date(d.date_demande).toLocaleDateString('fr-FR')}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Paiements récents */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">📅 Paiements Récents</h2>
-          <Link href="/paiements" className="text-sm text-emerald-600 hover:underline">
-            Voir tout →
-          </Link>
+          <Link href="/paiements" className="text-sm text-emerald-600 hover:underline">Voir tout →</Link>
         </div>
         {paiementsRecents.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">Aucun paiement récent ce mois.</p>
+          <p className="text-gray-500 text-center py-8">Aucun paiement reçu ce mois.</p>
         ) : (
           <div className="space-y-2">
             {paiementsRecents.map((p) => (
               <div key={p.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
                 <div>
-                  <p className="font-semibold">
-                    {p.contrat?.locataire?.noms_complet || 'Locataire inconnu'}
-                  </p>
+                  <p className="font-semibold">{p.contrat?.locataire?.noms_complet || 'Locataire inconnu'}</p>
                   <p className="text-sm text-gray-600">
-                    🏢 {p.contrat?.appartement?.nom || '?'} •
-                    {' '}{new Date(p.date_paiement).toLocaleDateString('fr-FR')}
+                    🏢 {p.contrat?.appartement?.nom || '?'} • {new Date(p.date_paiement).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
-                <p className="text-xl font-bold text-emerald-700">
-                  {parseFloat(p.montant).toFixed(0)} {p.devise || 'USD'}
-                </p>
+                <p className="text-xl font-bold text-emerald-700">{parseFloat(p.montant).toFixed(0)} USD</p>
               </div>
             ))}
           </div>
