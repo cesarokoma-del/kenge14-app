@@ -41,6 +41,7 @@ export default function Renouvellements() {
     setGenerating(null)
     chargerRenouvellements()
   }
+
   function telechargerContratPDF(contrat) {
     const renouvellement = contrat.renouvellements?.[0]
     if (!renouvellement || renouvellement.statut !== 'signe') {
@@ -48,7 +49,6 @@ export default function Renouvellements() {
       return
     }
     
-    // Préparer les données complètes pour le PDF
     const renouvellementComplet = {
       ...renouvellement,
       contrat: {
@@ -190,13 +190,12 @@ export default function Renouvellements() {
                       </button>
                     )}
                   </div>
-                  </div>
-
-                  </div>
-
+                </div>
+              </div>
             )
           })
-  
+        )}
+      </div>
 
       {/* Instructions */}
       <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
