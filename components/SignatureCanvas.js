@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 
-export default function SignatureCanvas({ onSignatureChange }) {
+const SignatureCanvas = forwardRef(function SignatureCanvas({ onSignatureChange }, ref) {
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
@@ -75,18 +75,16 @@ export default function SignatureCanvas({ onSignatureChange }) {
     }
   }
 
-  function getSignatureData() {
-    const canvas = canvasRef.current
-    return canvas.toDataURL('image/png')
-  }
-
-  // Expose methods to parent
-  useEffect(() => {
-    if (canvasRef.current) {
-      canvasRef.current.getSignatureData = getSignatureData
-      canvasRef.current.hasSignature = () => hasSignature
-    }
-  }, [hasSignature])
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    getSignatureData: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return null
+      return canvas.toDataURL('image/png')
+    },
+    hasSignature: () => hasSignature,
+    clear: clear
+  }), [hasSignature])
 
   return (
     <div>
@@ -110,4 +108,6 @@ export default function SignatureCanvas({ onSignatureChange }) {
       </button>
     </div>
   )
-}
+})
+
+export default SignatureCanvas
