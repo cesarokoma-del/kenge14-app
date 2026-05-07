@@ -23,10 +23,12 @@ export default function Contrats() {
     locataire_id: '',
     date_debut: '',
     date_fin: '',
+    duree_mois: 12,
     loyer: '',
-    caution: '',
+    garantie: '',
+    occupants: 1,
     statut: 'actif',
-    notes: ''
+    clauses_speciales: ''
   })
 
   useEffect(() => {
@@ -36,14 +38,13 @@ export default function Contrats() {
   // Pré-remplir si on arrive depuis Demandes
   useEffect(() => {
     if (router.isReady && router.query.appartement && router.query.locataire) {
-      // Récupérer le loyer de l'appartement
       const appt = appartements.find(a => a.id === router.query.appartement)
       setFormData(prev => ({
         ...prev,
         appartement_id: router.query.appartement,
         locataire_id: router.query.locataire,
         date_debut: new Date().toISOString().split('T')[0],
-        loyer: appt?.loyer_mensuel || ''
+        loyer: appt?.loyer_base || ''
       }))
       setShowForm(true)
     }
@@ -52,13 +53,10 @@ export default function Contrats() {
   async function chargerDonnees() {
     setLoading(true)
 
+    // Charger les contrats SANS jointure
     const { data: contratsData } = await supabase
       .from('contrats')
-      .select(`
-        *,
-        appartement:appartements(*),
-        locataire:locataires(*)
-      `)
+      .select('*')
       .order('date_debut', { ascending: false })
 
     const { data: apptsData } = await supabase
@@ -71,7 +69,14 @@ export default function Contrats() {
       .select('*')
       .order('noms_complet')
 
-    setContrats(contratsData || [])
+    // Jointure manuelle côté client
+    const contratsAvecRelations = (contratsData || []).map(c => ({
+      ...c,
+      appartement: apptsData?.find(a => a.id === c.appartement_id) || null,
+      locataire: locatairesData?.find(l => l.id === c.locataire_id) || null
+    }))
+
+    setContrats(contratsAvecRelations)
     setAppartements(apptsData || [])
     setLocataires(locatairesData || [])
     setLoading(false)
@@ -81,9 +86,16 @@ export default function Contrats() {
     e.preventDefault()
 
     const dataToSave = {
-      ...formData,
+      appartement_id: formData.appartement_id,
+      locataire_id: formData.locataire_id,
+      date_debut: formData.date_debut,
+      date_fin: formData.date_fin,
+      duree_mois: parseInt(formData.duree_mois) || 12,
       loyer: parseFloat(formData.loyer),
-      caution: formData.caution ? parseFloat(formData.caution) : null
+      garantie: formData.garantie ? parseFloat(formData.garantie) : null,
+      occupants: parseInt(formData.occupants) || 1,
+      statut: formData.statut,
+      clauses_speciales: formData.clauses_speciales || null
     }
 
     if (editingId) {
@@ -93,6 +105,7 @@ export default function Contrats() {
         .eq('id', editingId)
 
       if (error) {
+        console.error('Erreur:', error)
         alert('Erreur: ' + error.message)
         return
       }
@@ -102,6 +115,7 @@ export default function Contrats() {
         .insert(dataToSave)
 
       if (error) {
+        console.error('Erreur:', error)
         alert('Erreur: ' + error.message)
         return
       }
@@ -109,6 +123,7 @@ export default function Contrats() {
 
     resetForm()
     chargerDonnees()
+    alert('✅ Contrat enregistré avec succès !')
   }
 
   function handleEdit(contrat) {
@@ -117,10 +132,12 @@ export default function Contrats() {
       locataire_id: contrat.locataire_id || '',
       date_debut: contrat.date_debut || '',
       date_fin: contrat.date_fin || '',
+      duree_mois: contrat.duree_mois || 12,
       loyer: contrat.loyer || '',
-      caution: contrat.caution || '',
+      garantie: contrat.garantie || '',
+      occupants: contrat.occupants || 1,
       statut: contrat.statut || 'actif',
-      notes: contrat.notes || ''
+      clauses_speciales: contrat.clauses_speciales || ''
     })
     setEditingId(contrat.id)
     setShowForm(true)
@@ -143,8 +160,7 @@ export default function Contrats() {
       .update({
         statut: terminerData.raison_fin === 'resiliation' ? 'resilie' : 'termine',
         date_fin_effective: terminerData.date_fin_effective,
-        raison_fin: terminerData.raison_fin,
-        notes_fin: terminerData.notes_fin
+        raison_fin: terminerData.raison_fin
       })
       .eq('id', showTerminerModal.id)
 
@@ -159,7 +175,7 @@ export default function Contrats() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('Supprimer définitivement ce contrat ? (Les paiements liés seront aussi supprimés)')) return
+    if (!confirm('Supprimer définitivement ce contrat ?')) return
 
     const { error } = await supabase
       .from('contrats')
@@ -180,10 +196,12 @@ export default function Contrats() {
       locataire_id: '',
       date_debut: '',
       date_fin: '',
+      duree_mois: 12,
       loyer: '',
-      caution: '',
+      garantie: '',
+      occupants: 1,
       statut: 'actif',
-      notes: ''
+      clauses_speciales: ''
     })
     setEditingId(null)
     setShowForm(false)
@@ -196,10 +214,8 @@ export default function Contrats() {
     return Math.ceil((fin - aujourdhui) / (1000 * 60 * 60 * 24))
   }
 
-  // Filtrer les appartements disponibles (vacant ou en cours d'édition)
   const apptsDisponibles = appartements.filter(a => {
-    if (editingId) return true // En modification, montrer tous
-    // Pour création : seulement les vacants ou réservés
+    if (editingId) return true
     const apptOccupe = contrats.some(c => c.statut === 'actif' && c.appartement_id === a.id)
     return !apptOccupe && a.statut !== 'en_renovation'
   })
@@ -230,7 +246,6 @@ export default function Contrats() {
         </button>
       </div>
 
-      {/* Info logique */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <p className="text-sm text-blue-800">
           ℹ️ <strong>Logique automatique :</strong> Créer un contrat actif → l'appartement passe en "Loué".
@@ -238,57 +253,25 @@ export default function Contrats() {
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <button
-          onClick={() => setFilterStatut('actif')}
-          className={`rounded-2xl shadow-lg p-4 text-left transition ${
-            filterStatut === 'actif' ? 'bg-emerald-200 border-2 border-emerald-500' :
-            'bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200'
-          }`}
-        >
+        <button onClick={() => setFilterStatut('actif')} className={`rounded-2xl shadow-lg p-4 text-left transition ${filterStatut === 'actif' ? 'bg-emerald-200 border-2 border-emerald-500' : 'bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200'}`}>
           <p className="text-sm text-gray-600">✅ Actifs</p>
-          <p className="text-3xl font-bold text-emerald-700">
-            {contrats.filter(c => c.statut === 'actif').length}
-          </p>
+          <p className="text-3xl font-bold text-emerald-700">{contrats.filter(c => c.statut === 'actif').length}</p>
         </button>
-        <button
-          onClick={() => setFilterStatut('termine')}
-          className={`rounded-2xl shadow-lg p-4 text-left transition ${
-            filterStatut === 'termine' ? 'bg-gray-200 border-2 border-gray-500' :
-            'bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200'
-          }`}
-        >
+        <button onClick={() => setFilterStatut('termine')} className={`rounded-2xl shadow-lg p-4 text-left transition ${filterStatut === 'termine' ? 'bg-gray-200 border-2 border-gray-500' : 'bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200'}`}>
           <p className="text-sm text-gray-600">📋 Terminés</p>
-          <p className="text-3xl font-bold text-gray-700">
-            {contrats.filter(c => c.statut === 'termine').length}
-          </p>
+          <p className="text-3xl font-bold text-gray-700">{contrats.filter(c => c.statut === 'termine').length}</p>
         </button>
-        <button
-          onClick={() => setFilterStatut('resilie')}
-          className={`rounded-2xl shadow-lg p-4 text-left transition ${
-            filterStatut === 'resilie' ? 'bg-red-200 border-2 border-red-500' :
-            'bg-gradient-to-br from-red-50 to-red-100 border border-red-200'
-          }`}
-        >
+        <button onClick={() => setFilterStatut('resilie')} className={`rounded-2xl shadow-lg p-4 text-left transition ${filterStatut === 'resilie' ? 'bg-red-200 border-2 border-red-500' : 'bg-gradient-to-br from-red-50 to-red-100 border border-red-200'}`}>
           <p className="text-sm text-gray-600">⛔ Résiliés</p>
-          <p className="text-3xl font-bold text-red-700">
-            {contrats.filter(c => c.statut === 'resilie').length}
-          </p>
+          <p className="text-3xl font-bold text-red-700">{contrats.filter(c => c.statut === 'resilie').length}</p>
         </button>
-        <button
-          onClick={() => setFilterStatut('tous')}
-          className={`rounded-2xl shadow-lg p-4 text-left transition ${
-            filterStatut === 'tous' ? 'bg-blue-200 border-2 border-blue-500' :
-            'bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200'
-          }`}
-        >
+        <button onClick={() => setFilterStatut('tous')} className={`rounded-2xl shadow-lg p-4 text-left transition ${filterStatut === 'tous' ? 'bg-blue-200 border-2 border-blue-500' : 'bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200'}`}>
           <p className="text-sm text-gray-600">📊 Tous</p>
           <p className="text-3xl font-bold text-blue-700">{contrats.length}</p>
         </button>
       </div>
 
-      {/* Modal Terminer/Résilier */}
       {showTerminerModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
@@ -296,30 +279,14 @@ export default function Contrats() {
             <p className="text-sm text-gray-600 mb-4">
               <strong>{showTerminerModal.locataire?.noms_complet}</strong> - {showTerminerModal.appartement?.nom}
             </p>
-
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date de fin effective *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={terminerData.date_fin_effective}
-                  onChange={(e) => setTerminerData({ ...terminerData, date_fin_effective: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin effective *</label>
+                <input type="date" required value={terminerData.date_fin_effective} onChange={(e) => setTerminerData({ ...terminerData, date_fin_effective: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Raison *
-                </label>
-                <select
-                  value={terminerData.raison_fin}
-                  onChange={(e) => setTerminerData({ ...terminerData, raison_fin: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                >
+                <label className="block text-sm font-medium text-gray-700 mb-1">Raison *</label>
+                <select value={terminerData.raison_fin} onChange={(e) => setTerminerData({ ...terminerData, raison_fin: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
                   <option value="fin_normale">Fin normale (date prévue atteinte)</option>
                   <option value="depart_anticipe">Départ anticipé du locataire</option>
                   <option value="resiliation">Résiliation par le bailleur</option>
@@ -328,39 +295,15 @@ export default function Contrats() {
                   <option value="autre">Autre</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes / Détails
-                </label>
-                <textarea
-                  value={terminerData.notes_fin}
-                  onChange={(e) => setTerminerData({ ...terminerData, notes_fin: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
             </div>
-
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={confirmerTerminer}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold"
-              >
-                ✅ Confirmer
-              </button>
-              <button
-                onClick={() => setShowTerminerModal(null)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold"
-              >
-                Annuler
-              </button>
+              <button onClick={confirmerTerminer} className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold">✅ Confirmer</button>
+              <button onClick={() => setShowTerminerModal(null)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold">Annuler</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Formulaire */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -369,149 +312,80 @@ export default function Contrats() {
 
           {(apptsDisponibles.length === 0 && !editingId) && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-              <p className="text-orange-800">
-                ⚠️ Aucun appartement disponible. Tous sont déjà loués ou en rénovation.
-              </p>
+              <p className="text-orange-800">⚠️ Aucun appartement disponible. Tous sont déjà loués ou en rénovation.</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                🏢 Appartement *
-              </label>
-              <select
-                required
-                value={formData.appartement_id}
-                onChange={(e) => {
-                  const appt = appartements.find(a => a.id === e.target.value)
-                  setFormData({
-                    ...formData,
-                    appartement_id: e.target.value,
-                    loyer: appt?.loyer_mensuel || formData.loyer
-                  })
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              >
+              <label className="block text-sm font-medium text-gray-700 mb-1">🏢 Appartement *</label>
+              <select required value={formData.appartement_id} onChange={(e) => {
+                const appt = appartements.find(a => a.id === e.target.value)
+                setFormData({ ...formData, appartement_id: e.target.value, loyer: appt?.loyer_base || formData.loyer })
+              }} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
                 <option value="">-- Sélectionner --</option>
                 {(editingId ? appartements : apptsDisponibles).map((appt) => (
-                  <option key={appt.id} value={appt.id}>
-                    {appt.nom} ({appt.loyer_mensuel} USD)
-                  </option>
+                  <option key={appt.id} value={appt.id}>{appt.nom} ({appt.loyer_base} USD)</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                👤 Locataire *
-              </label>
-              <select
-                required
-                value={formData.locataire_id}
-                onChange={(e) => setFormData({ ...formData, locataire_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              >
+              <label className="block text-sm font-medium text-gray-700 mb-1">👤 Locataire *</label>
+              <select required value={formData.locataire_id} onChange={(e) => setFormData({ ...formData, locataire_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
                 <option value="">-- Sélectionner --</option>
-                {locataires.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.noms_complet}
-                  </option>
-                ))}
+                {locataires.map((loc) => (<option key={loc.id} value={loc.id}>{loc.noms_complet}</option>))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                📅 Date de début *
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.date_debut}
-                onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date de début *</label>
+              <input type="date" required value={formData.date_debut} onChange={(e) => setFormData({ ...formData, date_debut: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                📅 Date de fin *
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.date_fin}
-                onChange={(e) => setFormData({ ...formData, date_fin: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date de fin *</label>
+              <input type="date" required value={formData.date_fin} onChange={(e) => setFormData({ ...formData, date_fin: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                💰 Loyer mensuel (USD) *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={formData.loyer}
-                onChange={(e) => setFormData({ ...formData, loyer: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">⏱️ Durée (mois)</label>
+              <input type="number" min="1" value={formData.duree_mois} onChange={(e) => setFormData({ ...formData, duree_mois: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                🏦 Caution (USD)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.caution}
-                onChange={(e) => setFormData({ ...formData, caution: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">👥 Nombre d'occupants</label>
+              <input type="number" min="1" value={formData.occupants} onChange={(e) => setFormData({ ...formData, occupants: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">💰 Loyer mensuel (USD) *</label>
+              <input type="number" step="0.01" required value={formData.loyer} onChange={(e) => setFormData({ ...formData, loyer: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">🏦 Garantie / Caution (USD)</label>
+              <input type="number" step="0.01" value={formData.garantie} onChange={(e) => setFormData({ ...formData, garantie: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                📝 Notes
-              </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">📝 Clauses spéciales / Notes</label>
+              <textarea value={formData.clauses_speciales} onChange={(e) => setFormData({ ...formData, clauses_speciales: e.target.value })} rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
             </div>
 
             <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-semibold transition"
-              >
+              <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-semibold transition">
                 {editingId ? '💾 Mettre à jour' : '✅ Créer le contrat'}
               </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold transition"
-              >
-                Annuler
-              </button>
+              <button type="button" onClick={resetForm} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold transition">Annuler</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Liste */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          {filterStatut === 'tous' ? 'Tous les contrats' :
-           filterStatut === 'actif' ? 'Contrats actifs' :
-           filterStatut === 'termine' ? 'Contrats terminés' : 'Contrats résiliés'}
-          {' '}({contratsFiltres.length})
+          {filterStatut === 'tous' ? 'Tous les contrats' : filterStatut === 'actif' ? 'Contrats actifs' : filterStatut === 'termine' ? 'Contrats terminés' : 'Contrats résiliés'} ({contratsFiltres.length})
         </h2>
 
         {contratsFiltres.length === 0 ? (
@@ -524,104 +398,44 @@ export default function Contrats() {
               const isExpired = joursAvantFin !== null && joursAvantFin < 0 && contrat.statut === 'actif'
 
               return (
-                <div
-                  key={contrat.id}
-                  className={`border rounded-xl p-4 hover:shadow-md transition ${
-                    isExpiring ? 'border-orange-300 bg-orange-50' :
-                    isExpired ? 'border-red-300 bg-red-50' :
-                    contrat.statut === 'termine' ? 'border-gray-300 bg-gray-50' :
-                    contrat.statut === 'resilie' ? 'border-red-300 bg-red-50' :
-                    'border-gray-200'
-                  }`}
-                >
+                <div key={contrat.id} className={`border rounded-xl p-4 hover:shadow-md transition ${isExpiring ? 'border-orange-300 bg-orange-50' : isExpired ? 'border-red-300 bg-red-50' : contrat.statut === 'termine' ? 'border-gray-300 bg-gray-50' : contrat.statut === 'resilie' ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800">
-                        {contrat.locataire?.noms_complet || 'Locataire inconnu'}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        🏢 {contrat.appartement?.nom || 'Appartement inconnu'}
-                      </p>
+                      <h3 className="text-lg font-bold text-gray-800">{contrat.locataire?.noms_complet || 'Locataire inconnu'}</h3>
+                      <p className="text-sm text-gray-600">🏢 {contrat.appartement?.nom || 'Appartement inconnu'}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      contrat.statut === 'actif' ? 'bg-emerald-100 text-emerald-800' :
-                      contrat.statut === 'termine' ? 'bg-gray-100 text-gray-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {contrat.statut === 'actif' ? '✅ Actif' :
-                       contrat.statut === 'termine' ? '📋 Terminé' : '⛔ Résilié'}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut === 'actif' ? 'bg-emerald-100 text-emerald-800' : contrat.statut === 'termine' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
+                      {contrat.statut === 'actif' ? '✅ Actif' : contrat.statut === 'termine' ? '📋 Terminé' : '⛔ Résilié'}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm mt-3 border-t pt-3">
-                    <div>
-                      <p className="text-gray-500">Début</p>
-                      <p className="font-semibold">
-                        {contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Fin prévue</p>
-                      <p className="font-semibold">
-                        {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Loyer</p>
-                      <p className="font-bold text-emerald-700">{contrat.loyer} USD</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Caution</p>
-                      <p className="font-semibold">{contrat.caution || 0} USD</p>
-                    </div>
+                    <div><p className="text-gray-500">Début</p><p className="font-semibold">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p></div>
+                    <div><p className="text-gray-500">Fin prévue</p><p className="font-semibold">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}</p></div>
+                    <div><p className="text-gray-500">Loyer</p><p className="font-bold text-emerald-700">{contrat.loyer} USD</p></div>
+                    <div><p className="text-gray-500">Garantie</p><p className="font-semibold">{contrat.garantie || 0} USD</p></div>
                   </div>
 
                   {contrat.date_fin_effective && (
                     <div className="mt-3 p-2 bg-gray-100 rounded text-sm">
                       <p>📅 <strong>Fin effective :</strong> {new Date(contrat.date_fin_effective).toLocaleDateString('fr-FR')}</p>
                       {contrat.raison_fin && <p>📌 <strong>Raison :</strong> {contrat.raison_fin.replace('_', ' ')}</p>}
-                      {contrat.notes_fin && <p className="italic">"{contrat.notes_fin}"</p>}
                     </div>
                   )}
 
-                  {isExpiring && (
-                    <div className="mt-3 p-2 bg-orange-100 rounded text-sm text-orange-800">
-                      ⚠️ Expire dans {joursAvantFin} jour(s)
-                    </div>
-                  )}
-                  {isExpired && (
-                    <div className="mt-3 p-2 bg-red-100 rounded text-sm text-red-800">
-                      🚨 Contrat expiré depuis {Math.abs(joursAvantFin)} jour(s) — terminez-le
-                    </div>
-                  )}
+                  {isExpiring && <div className="mt-3 p-2 bg-orange-100 rounded text-sm text-orange-800">⚠️ Expire dans {joursAvantFin} jour(s)</div>}
+                  {isExpired && <div className="mt-3 p-2 bg-red-100 rounded text-sm text-red-800">🚨 Contrat expiré depuis {Math.abs(joursAvantFin)} jour(s) — terminez-le</div>}
 
-                  {contrat.notes && (
-                    <p className="text-sm text-gray-500 mt-2 italic">{contrat.notes}</p>
-                  )}
+                  {contrat.clauses_speciales && (<p className="text-sm text-gray-500 mt-2 italic">{contrat.clauses_speciales}</p>)}
 
                   <div className="flex flex-wrap gap-2 mt-4">
                     {contrat.statut === 'actif' && (
                       <>
-                        <button
-                          onClick={() => handleEdit(contrat)}
-                          className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
-                        >
-                          ✏️ Modifier
-                        </button>
-                        <button
-                          onClick={() => ouvrirTerminerModal(contrat)}
-                          className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
-                        >
-                          🔚 Terminer
-                        </button>
+                        <button onClick={() => handleEdit(contrat)} className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition">✏️ Modifier</button>
+                        <button onClick={() => ouvrirTerminerModal(contrat)} className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🔚 Terminer</button>
                       </>
                     )}
-                    <button
-                      onClick={() => handleDelete(contrat.id)}
-                      className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
-                    >
-                      🗑️
-                    </button>
+                    <button onClick={() => handleDelete(contrat.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
                   </div>
                 </div>
               )
