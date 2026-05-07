@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getRenouvellements, creerRenouvellement } from '../lib/supabase'
+import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 
 export default function Renouvellements() {
   const [contrats, setContrats] = useState([])
@@ -39,6 +40,27 @@ export default function Renouvellements() {
     
     setGenerating(null)
     chargerRenouvellements()
+  }
+  function telechargerContratPDF(contrat) {
+    const renouvellement = contrat.renouvellements?.[0]
+    if (!renouvellement || renouvellement.statut !== 'signe') {
+      alert('❌ Ce renouvellement n\'est pas encore signé')
+      return
+    }
+    
+    // Préparer les données complètes pour le PDF
+    const renouvellementComplet = {
+      ...renouvellement,
+      contrat: {
+        ...contrat,
+        appartement: contrat.appartement,
+        locataire: contrat.locataire,
+      }
+    }
+    
+    const doc = genererContratRenouvellementPDF(renouvellementComplet)
+    const nomFichier = `Contrat-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Signe'}.pdf`
+    doc.save(nomFichier)
   }
 
   function getJoursRestants(dateFin) {
@@ -150,7 +172,7 @@ export default function Renouvellements() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <button
                       onClick={() => genererLien(contrat)}
                       disabled={generating === contrat.id}
@@ -158,9 +180,16 @@ export default function Renouvellements() {
                     >
                       {generating === contrat.id ? '⏳' : '📨'} Envoyer proposition
                     </button>
+                    
+                    {renouvellement?.statut === 'signe' && (
+                      <button
+                        onClick={() => telechargerContratPDF(contrat)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                      >
+                        📥 Télécharger PDF
+                      </button>
+                    )}
                   </div>
-                </div>
-              </div>
             )
           })
         )}
