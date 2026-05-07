@@ -190,10 +190,13 @@ export default function Renouvellements() {
                       </button>
                     )}
                   </div>
+                  </div>
+
+                  </div>
+
             )
           })
-        )}
-      </div>
+  
 
       {/* Instructions */}
       <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
