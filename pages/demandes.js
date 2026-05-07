@@ -17,20 +17,34 @@ export default function Demandes() {
   async function chargerDonnees() {
     setLoading(true)
 
-    const { data: demandesData } = await supabase
+    // Charger les demandes SANS jointure pour éviter les erreurs
+    const { data: demandesData, error: errDemandes } = await supabase
       .from('demandes_location')
-      .select(`
-        *,
-        appartement:appartements(nom, loyer_mensuel)
-      `)
+      .select('*')
       .order('date_demande', { ascending: false })
 
-    const { data: apptsData } = await supabase
+    if (errDemandes) {
+      console.error('Erreur chargement demandes:', errDemandes)
+      alert('Erreur chargement demandes: ' + errDemandes.message)
+    }
+
+    // Charger les appartements séparément
+    const { data: apptsData, error: errAppts } = await supabase
       .from('appartements')
       .select('*')
       .order('nom')
 
-    setDemandes(demandesData || [])
+    if (errAppts) {
+      console.error('Erreur chargement appartements:', errAppts)
+    }
+
+    // Faire la jointure manuellement côté client
+    const demandesAvecAppt = (demandesData || []).map(d => ({
+      ...d,
+      appartement: apptsData?.find(a => a.id === d.appartement_id) || null
+    }))
+
+    setDemandes(demandesAvecAppt)
     setAppartements(apptsData || [])
     setLoading(false)
   }
@@ -50,11 +64,11 @@ export default function Demandes() {
 
   async function approuverDemande(demande) {
     if (!demande.appartement_id) {
-      alert('❌ Cette demande n\'est associée à aucun appartement. Modifiez-la d\'abord.')
+      alert('❌ Cette demande n\'est associée à aucun appartement.')
       return
     }
 
-    if (!confirm(`Approuver la demande de ${demande.noms_complet} pour ${demande.appartement?.nom} ?`)) return
+    if (!confirm(`Approuver la demande de ${demande.noms_complet} pour ${demande.appartement?.nom || 'l\'appartement'} ?`)) return
 
     // 1. Créer le locataire
     const { data: locataire, error: errLoc } = await supabase
@@ -71,12 +85,13 @@ export default function Demandes() {
       .single()
 
     if (errLoc) {
+      console.error('Erreur création locataire:', errLoc)
       alert('Erreur création locataire: ' + errLoc.message)
       return
     }
 
     // 2. Mettre à jour la demande comme approuvée
-    await supabase
+    const { error: errUpdate } = await supabase
       .from('demandes_location')
       .update({
         statut: 'approuvee',
@@ -84,9 +99,14 @@ export default function Demandes() {
       })
       .eq('id', demande.id)
 
-    alert(`✅ Demande approuvée ! Locataire "${demande.noms_complet}" créé.\n\nVous pouvez maintenant créer un contrat dans l'onglet "Contrats".`)
+    if (errUpdate) {
+      console.error('Erreur mise à jour demande:', errUpdate)
+      alert('Erreur mise à jour: ' + errUpdate.message)
+      return
+    }
 
-    // Rediriger vers la page contrats avec les infos pré-remplies
+    alert(`✅ Demande approuvée ! Locataire "${demande.noms_complet}" créé.\n\nVous allez être redirigé vers la page Contrats pour finaliser.`)
+
     if (typeof window !== 'undefined') {
       window.location.href = `/contrats?demande=${demande.id}&locataire=${locataire.id}&appartement=${demande.appartement_id}`
     }
@@ -161,7 +181,6 @@ export default function Demandes() {
         </button>
       </div>
 
-      {/* Info logique */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <p className="text-sm text-blue-800">
           ℹ️ <strong>Comment ça marche ?</strong> Cliquez "Générer un lien" → envoyez-le au candidat sur WhatsApp →
@@ -170,7 +189,6 @@ export default function Demandes() {
         </p>
       </div>
 
-      {/* Stats / Filtres */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <button
           onClick={() => setFilterStatut('en_attente')}
@@ -218,13 +236,12 @@ export default function Demandes() {
         </button>
       </div>
 
-      {/* Modal Lien généré */}
       {showLienModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full">
             <h3 className="text-2xl font-bold mb-4">🔗 Lien public généré</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Envoyez ce lien au candidat (WhatsApp, SMS, email). Il pourra remplir le formulaire de demande.
+              Envoyez ce lien au candidat (WhatsApp, SMS, email).
             </p>
             <div className="bg-gray-100 p-3 rounded-lg break-all text-sm font-mono mb-4">
               {lienGenere}
@@ -234,7 +251,7 @@ export default function Demandes() {
                 onClick={copierLien}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-semibold"
               >
-                📋 Copier le lien
+                📋 Copier
               </button>
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(`Bonjour, voici le lien pour votre demande de location KENGE14: ${lienGenere}`)}`}
@@ -242,7 +259,7 @@ export default function Demandes() {
                 rel="noopener noreferrer"
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold text-center"
               >
-                💬 Partager sur WhatsApp
+                💬 WhatsApp
               </a>
               <button
                 onClick={() => setShowLienModal(false)}
@@ -255,7 +272,6 @@ export default function Demandes() {
         </div>
       )}
 
-      {/* Liste des demandes */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           {filterStatut === 'toutes' ? 'Toutes les demandes' :
@@ -266,8 +282,7 @@ export default function Demandes() {
 
         {demandesFiltrees.length === 0 ? (
           <p className="text-center text-gray-500 py-8">
-            Aucune demande {filterStatut !== 'toutes' && `(${filterStatut.replace('_', ' ')})`}.
-            Cliquez sur "Générer un lien public" pour commencer à recevoir des demandes.
+            Aucune demande dans cette catégorie.
           </p>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -295,9 +310,7 @@ export default function Demandes() {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-700">
-                  {d.appartement && (
-                    <p>🏢 <strong>{d.appartement.nom}</strong> ({d.appartement.loyer_mensuel} USD/mois)</p>
-                  )}
+                  {d.appartement && <p>🏢 <strong>{d.appartement.nom}</strong></p>}
                   {d.telephone && (
                     <p>📱 <a href={`tel:${d.telephone}`} className="text-emerald-700 hover:underline">{d.telephone}</a></p>
                   )}
