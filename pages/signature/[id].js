@@ -2,6 +2,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState, useRef } from 'react'
 import SignatureCanvas from '../../components/SignatureCanvas'
 import { getRenouvellementParLien, sauvegarderSignature } from '../../lib/supabase'
+import { genererContratRenouvellementPDF } from '../../lib/genererContratPDF'
 
 export default function PageSignature() {
   const router = useRouter()
@@ -77,6 +78,13 @@ export default function PageSignature() {
     setSubmitting(false)
   }
 
+  function telechargerPDF() {
+    if (!renouvellement) return
+    const doc = genererContratRenouvellementPDF(renouvellement)
+    const nomFichier = `Contrat-${renouvellement.contrat?.appartement?.nom || 'KENGE14'}-${nomSignataire || 'Signe'}.pdf`
+    doc.save(nomFichier)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -106,7 +114,18 @@ export default function PageSignature() {
           <p className="text-green-700 mb-4">
             Votre signature a été enregistrée avec succès.
           </p>
-          <p className="text-sm text-green-600">Le propriétaire a été notifié.</p>
+          <p className="text-sm text-green-600 mb-6">Le propriétaire a été notifié.</p>
+
+          <button
+            onClick={telechargerPDF}
+            className="w-full px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 mb-3"
+          >
+            📥 Télécharger mon contrat PDF
+          </button>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Conservez précieusement ce document
+          </p>
         </div>
       </div>
     )
