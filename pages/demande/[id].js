@@ -122,7 +122,7 @@ export default function FormulaireDemande() {
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-emerald-800">
                 🏢 Vous postulez pour : <strong>{appartement.nom}</strong>
-                {' '}({appartement.loyer_base} USD/mois)
+                {' '}(Disponible)
               </p>
             </div>
           )}
@@ -136,7 +136,7 @@ export default function FormulaireDemande() {
                 <option value="">-- Sélectionner un appartement --</option>
                 {appartements.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.nom} - {a.loyer_base} USD/mois
+                    {a.nom}
                     {a.chambres > 0 && ` (${a.chambres} chambre${a.chambres > 1 ? 's' : ''})`}
                   </option>
                 ))}
