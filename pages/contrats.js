@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 
 export default function Contrats() {
   const router = useRouter()
@@ -188,6 +189,38 @@ export default function Contrats() {
     }
 
     chargerDonnees()
+  }
+
+  async function telechargerAvenantPDF(contrat) {
+    // Récupérer le dernier renouvellement signé pour ce contrat
+    const { data: renouvellements, error } = await supabase
+      .from('renouvellements')
+      .select('*')
+      .eq('contrat_id', contrat.id)
+      .eq('statut', 'signe')
+      .order('date_signature', { ascending: false })
+      .limit(1)
+
+    if (error || !renouvellements || renouvellements.length === 0) {
+      alert('❌ Aucun avenant signé disponible pour ce contrat.\n\nIl faut d\'abord faire signer un renouvellement depuis la page "Renouvellements".')
+      return
+    }
+
+    const renouvellement = renouvellements[0]
+
+    // Préparer les données complètes pour le PDF
+    const renouvellementComplet = {
+      ...renouvellement,
+      contrat: {
+        ...contrat,
+        appartement: contrat.appartement,
+        locataire: contrat.locataire,
+      }
+    }
+
+    const doc = genererContratRenouvellementPDF(renouvellementComplet)
+    const nomFichier = `Avenant-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Signe'}.pdf`
+    doc.save(nomFichier)
   }
 
   function resetForm() {
@@ -435,6 +468,13 @@ export default function Contrats() {
                         <button onClick={() => ouvrirTerminerModal(contrat)} className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🔚 Terminer</button>
                       </>
                     )}
+                    <button
+                      onClick={() => telechargerAvenantPDF(contrat)}
+                      title="Télécharger l'avenant signé"
+                      className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
+                    >
+                      📥
+                    </button>
                     <button onClick={() => handleDelete(contrat.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
                   </div>
                 </div>
