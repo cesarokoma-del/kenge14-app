@@ -10,6 +10,7 @@ export default function Navigation({ activePage }) {
     { id: 'paiements', label: 'Paiements', icon: '💰', path: '/paiements' },
     { id: 'depenses', label: 'Dépenses', icon: '📊', path: '/depenses' },
     { id: 'renouvellements', label: 'Renouvellements', icon: '🔄', path: '/renouvellements' },
+    { id: 'parametres', label: 'Paramètres', icon: '⚙️', path: '/parametres' },
   ]
 
   return (
