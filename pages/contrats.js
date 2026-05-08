@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
+import { signerContratCommeBailleur, creerLienSignatureBail } from '../lib/supabase'
 
 export default function Contrats() {
   const router = useRouter()
@@ -228,6 +229,68 @@ export default function Contrats() {
     const doc = genererContratInitialPDF(contrat)
     const nomFichier = `Contrat-Bail-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Vierge'}.pdf`
     doc.save(nomFichier)
+  }
+  async function lancerSignatureContrat(contrat) {
+    // Vérifier l'état actuel
+    const dejaSigneBailleur = !!contrat.signature_bailleur
+    const dejaSigneLocataire = !!contrat.signature_locataire
+    
+    let messageConfirmation = ''
+    
+    if (!dejaSigneBailleur && !dejaSigneLocataire) {
+      messageConfirmation = `📝 Démarrage du processus de signature\n\n` +
+        `Cette action va :\n` +
+        `1. Apposer VOTRE signature stockée sur ce contrat\n` +
+        `2. Générer un lien à envoyer au locataire\n\n` +
+        `Locataire : ${contrat.locataire?.noms_complet}\n` +
+        `Appartement : ${contrat.appartement?.nom}\n` +
+        `Loyer : ${contrat.loyer} USD\n\n` +
+        `Continuer ?`
+    } else if (dejaSigneBailleur && !dejaSigneLocataire) {
+      messageConfirmation = `⏳ Vous avez déjà signé ce contrat\n\n` +
+        `Voulez-vous regénérer un nouveau lien pour le locataire ?\n` +
+        `(Utile si l'ancien lien est perdu)`
+    } else if (dejaSigneBailleur && dejaSigneLocataire) {
+      alert('✅ Ce contrat est déjà entièrement signé par les 2 parties !')
+      return
+    }
+    
+    if (!confirm(messageConfirmation)) return
+    
+    // 1. Signer comme bailleur (si pas déjà fait)
+    if (!dejaSigneBailleur) {
+      const { error: errSig } = await signerContratCommeBailleur(contrat.id)
+      if (errSig) {
+        alert('❌ Erreur lors de la signature bailleur :\n' + errSig.message)
+        return
+      }
+    }
+    
+    // 2. Créer le lien pour le locataire
+    const { lien, error: errLien } = await creerLienSignatureBail(contrat.id)
+    if (errLien) {
+      alert('❌ Erreur lors de la création du lien :\n' + errLien.message)
+      return
+    }
+    
+    // 3. Copier le lien dans le presse-papiers
+    try {
+      await navigator.clipboard.writeText(lien)
+      alert(
+        `✅ Contrat signé par le bailleur !\n\n` +
+        `🔗 Lien copié dans le presse-papiers :\n${lien}\n\n` +
+        `📲 Envoyez ce lien à ${contrat.locataire?.noms_complet} via WhatsApp.\n\n` +
+        `Le locataire pourra signer directement depuis son téléphone.`
+      )
+    } catch (e) {
+      prompt(
+        `Copiez ce lien et envoyez-le à ${contrat.locataire?.noms_complet} sur WhatsApp :`,
+        lien
+      )
+    }
+    
+    // 4. Recharger les données
+    chargerDonnees()
   }
 
   function resetForm() {
@@ -489,6 +552,26 @@ export default function Contrats() {
                     >
                       📜
                     </button>
+                    {contrat.statut === 'actif' && (
+                      <button
+                        onClick={() => lancerSignatureContrat(contrat)}
+                        title={
+                          contrat.statut_signature === 'tous_signes' ? '✅ Entièrement signé' :
+                          contrat.statut_signature === 'bailleur_signe' ? '⏳ En attente du locataire' :
+                          '📝 Lancer la signature électronique'
+                        }
+                        className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${
+                          contrat.statut_signature === 'tous_signes' 
+                            ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' 
+                            : contrat.statut_signature === 'bailleur_signe'
+                            ? 'bg-orange-100 hover:bg-orange-200 text-orange-800'
+                            : 'bg-purple-100 hover:bg-purple-200 text-purple-800'
+                        }`}
+                      >
+                        {contrat.statut_signature === 'tous_signes' ? '✅' :
+                         contrat.statut_signature === 'bailleur_signe' ? '⏳' : '📝'}
+                      </button>
+                    )}
                     <button onClick={() => handleDelete(contrat.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
                   </div>
                 </div>
