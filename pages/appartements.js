@@ -13,6 +13,7 @@ export default function Appartements() {
     salons: 1,
     salles_bain: 1,
     autres_elements: '',
+    description_complete: '',
     loyer_base: '',
     statut: 'vacant'
   })
@@ -88,6 +89,7 @@ export default function Appartements() {
       salons: parseInt(formData.salons) || 0,
       salles_bain: parseInt(formData.salles_bain) || 0,
       autres_elements: formData.autres_elements || null,
+      description_complete: formData.description_complete || null,
       loyer_base: parseFloat(formData.loyer_base),
       statut: formData.statut
     }
@@ -128,6 +130,7 @@ export default function Appartements() {
       salons: appartement.salons || 1,
       salles_bain: appartement.salles_bain || 1,
       autres_elements: appartement.autres_elements || '',
+      description_complete: appartement.description_complete || '',
       loyer_base: appartement.loyer_base || '',
       statut: appartement.statut || 'vacant'
     })
@@ -184,6 +187,7 @@ export default function Appartements() {
       salons: 1,
       salles_bain: 1,
       autres_elements: '',
+      description_complete: '',
       loyer_base: '',
       statut: 'vacant'
     })
@@ -299,15 +303,18 @@ export default function Appartements() {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                📝 Autres éléments (cuisine, terrasse, magasin, etc.)
+                📜 Description complète pour le contrat de bail
               </label>
               <textarea
-                value={formData.autres_elements}
-                onChange={(e) => setFormData({ ...formData, autres_elements: e.target.value })}
+                value={formData.description_complete}
+                onChange={(e) => setFormData({ ...formData, description_complete: e.target.value })}
                 rows={3}
-                placeholder="Ex: Une cuisine, douche-toilette externe"
+                placeholder="Ex: studio comprenant une pièce principale faisant office de chambre/salon, un coin cuisine et une douche externe"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                💡 Ce texte sera utilisé dans l'article 1 du contrat de bail. Soyez précis !
+              </p>
             </div>
 
             <div className="md:col-span-2 flex gap-3">
