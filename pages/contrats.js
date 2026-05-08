@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
+import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
 
 export default function Contrats() {
   const router = useRouter()
@@ -220,6 +221,12 @@ export default function Contrats() {
 
     const doc = genererContratRenouvellementPDF(renouvellementComplet)
     const nomFichier = `Avenant-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Signe'}.pdf`
+    doc.save(nomFichier)
+  }
+
+  function telechargerContratInitialPDF(contrat) {
+    const doc = genererContratInitialPDF(contrat)
+    const nomFichier = `Contrat-Bail-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Vierge'}.pdf`
     doc.save(nomFichier)
   }
 
@@ -474,6 +481,13 @@ export default function Contrats() {
                       className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
                     >
                       📥
+                    </button>
+                    <button
+                      onClick={() => telechargerContratInitialPDF(contrat)}
+                      title="Télécharger le contrat de bail initial"
+                      className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded-lg text-sm font-semibold transition"
+                    >
+                      📜
                     </button>
                     <button onClick={() => handleDelete(contrat.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
                   </div>
