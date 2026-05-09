@@ -48,8 +48,8 @@ export default function Parametres() {
   async function handleSubmitSolde(e) {
     e.preventDefault()
     
-    if (!formSolde.montant || parseFloat(formSolde.montant) < 0) {
-      alert('⚠️ Veuillez saisir un montant valide')
+    if (!formSolde.montant || isNaN(parseFloat(formSolde.montant))) {
+      alert('⚠️ Veuillez saisir un montant valide (ex: 5000 ou -760.27)')
       return
     }
 
