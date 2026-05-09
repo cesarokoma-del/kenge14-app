@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { getRenouvellements, creerRenouvellement } from '../lib/supabase'
+import { getRenouvellements, creerRenouvellement, validerRenouvellement, basculerContratsFuturs } from '../lib/supabase'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 
 export default function Renouvellements() {
@@ -14,6 +14,8 @@ export default function Renouvellements() {
 
   async function chargerRenouvellements() {
     setLoading(true)
+    // Bascule automatique des contrats 'futur' devenus 'actif'
+    await basculerContratsFuturs()
     const { data } = await getRenouvellements()
     setContrats(data || [])
     setLoading(false)
@@ -39,6 +41,45 @@ export default function Renouvellements() {
     }
     
     setGenerating(null)
+    chargerRenouvellements()
+  }
+
+  async function validerSignature(contrat) {
+    const renouvellement = contrat.renouvellements?.[0]
+    if (!renouvellement) return
+
+    // Calcul des dates pour confirmation
+    const dateFinAncien = new Date(contrat.date_fin)
+    const dateDebutNouveau = new Date(dateFinAncien)
+    dateDebutNouveau.setDate(dateDebutNouveau.getDate() + 1)
+    const dateFinNouveau = new Date(dateDebutNouveau)
+    dateFinNouveau.setFullYear(dateFinNouveau.getFullYear() + 1)
+    dateFinNouveau.setDate(dateFinNouveau.getDate() - 1)
+
+    const formatDateFr = (d) => d.toLocaleDateString('fr-FR')
+
+    const confirmation = confirm(
+      `🔄 Activer le renouvellement de ${contrat.locataire?.noms_complet} ?\n\n` +
+      `📅 Ancien contrat : se terminera le ${formatDateFr(dateFinAncien)}\n` +
+      `📅 Nouveau contrat : du ${formatDateFr(dateDebutNouveau)} au ${formatDateFr(dateFinNouveau)}\n` +
+      `💰 Loyer : ${contrat.loyer} USD/mois\n` +
+      `🛡️ Garantie : ${contrat.garantie} USD (conservée)\n\n` +
+      `Le nouveau contrat sera créé avec le statut "Futur" et deviendra actif automatiquement le ${formatDateFr(dateDebutNouveau)}.\n\n` +
+      `Confirmer ?`
+    )
+
+    if (!confirmation) return
+
+    setGenerating(contrat.id)
+    const { data, error } = await validerRenouvellement(renouvellement.id)
+    setGenerating(null)
+
+    if (error) {
+      alert('❌ Erreur : ' + (error.message || 'Inconnue'))
+      return
+    }
+
+    alert(`✅ Renouvellement validé !\n\nLe nouveau contrat est créé avec statut "Futur".\nIl deviendra actif le ${formatDateFr(dateDebutNouveau)}.`)
     chargerRenouvellements()
   }
 
@@ -190,6 +231,15 @@ export default function Renouvellements() {
                       </button>
                     )}
                   </div>
+                  {renouvellement?.statut === 'signe' && (
+                      <button
+                        onClick={() => validerSignature(contrat)}
+                        disabled={generating === contrat.id}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generating === contrat.id ? '⏳' : '✅'} Valider le renouvellement
+                      </button>
+                    )}
                 </div>
               </div>
             )

@@ -28,6 +28,9 @@ export default function TableauDeBord() {
   async function chargerDonnees() {
     setLoading(true)
 
+    // Bascule automatique des contrats 'futur' devenus 'actif'
+    await basculerContratsFuturs()
+
     // Charger toutes les données séparément (plus robuste)
     const { data: apptsData } = await supabase
       .from('appartements')
