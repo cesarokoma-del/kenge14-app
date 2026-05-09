@@ -103,18 +103,7 @@ export default function Renouvellements() {
   }
 
   function telechargerContratPDF(contrat) {
-  const renouvellement = contrat.dernier_renouvellement
-  
-  // 🔍 DEBUG TEMPORAIRE - À SUPPRIMER APRÈS
-  console.log('═══════════ DEBUG PDF ═══════════')
-  console.log('Locataire:', contrat.locataire?.noms_complet)
-  console.log('ui_statut:', contrat.ui_statut)
-  console.log('deja_signe:', contrat.deja_signe)
-  console.log('dernier_renouvellement:', renouvellement)
-  console.log('statut (brut):', JSON.stringify(renouvellement?.statut))
-  console.log('statut === "active" ?', renouvellement?.statut === 'active')
-  console.log('Tous renouvellements:', contrat.renouvellements)
-  console.log('═══════════════════════════════════')
+  const renouvellement = contrat.dernier_renouvellement 
   
   if (!renouvellement || renouvellement.statut !== 'active') {
     alert('❌ Ce renouvellement n\'est pas encore signé')
