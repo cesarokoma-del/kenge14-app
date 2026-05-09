@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
+import { supabase, calculerSoldeBancaire } from '../lib/supabase'
 
 export default function TableauDeBord() {
   const [stats, setStats] = useState({
@@ -19,6 +19,7 @@ export default function TableauDeBord() {
   const [paiementsRecents, setPaiementsRecents] = useState([])
   const [demandesRecentes, setDemandesRecentes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [tresorerie, setTresorerie] = useState(null)
 
   useEffect(() => {
     chargerDonnees()
@@ -134,6 +135,11 @@ export default function TableauDeBord() {
 
     setPaiementsRecents(paiementsEnrichis)
     setDemandesRecentes(demandesEnrichies)
+
+    // Charger les données de trésorerie
+    const soldeData = await calculerSoldeBancaire()
+    setTresorerie(soldeData)
+
     setLoading(false)
   }
 
@@ -224,6 +230,47 @@ export default function TableauDeBord() {
           <p className="text-xs text-gray-500 mt-1">Paiements reçus</p>
         </div>
       </div>
+      {/* Section Trésorerie */}
+        {tresorerie && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">🏦 Trésorerie</h2>
+              {!tresorerie.hasSoldeInitial && (
+                <Link href="/parametres" className="text-sm text-amber-700 underline">
+                  ⚠️ Configurer le solde initial
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border border-emerald-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">💰 Solde Brut</p>
+                  <span className="text-2xl">💰</span>
+                </div>
+                <p className="text-3xl font-bold text-emerald-700">{tresorerie.soldeBrut.toFixed(0)} USD</p>
+                <p className="text-xs text-gray-500 mt-1">Total en banque</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-lg p-6 border border-yellow-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">🛡️ Garanties</p>
+                  <span className="text-2xl">🛡️</span>
+                </div>
+                <p className="text-3xl font-bold text-yellow-700">{tresorerie.totalGaranties.toFixed(0)} USD</p>
+                <p className="text-xs text-gray-500 mt-1">À restituer aux locataires</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">✅ Solde Net</p>
+                  <span className="text-2xl">✅</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-700">{tresorerie.soldeNet.toFixed(0)} USD</p>
+                <p className="text-xs text-gray-500 mt-1">Réellement disponible</p>
+              </div>
+            </div>
+          </div>
+        )}
 
       {demandesRecentes.length > 0 && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-yellow-200 mb-6">
