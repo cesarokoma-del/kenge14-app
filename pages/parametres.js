@@ -306,8 +306,7 @@ export default function Parametres() {
               </label>
               <input
                 type="number"
-                step="0.01"
-                min="0"
+                step="0.01"              
                 value={formSolde.montant}
                 onChange={(e) => setFormSolde({ ...formSolde, montant: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
