@@ -52,6 +52,11 @@ export default function TableauDeBord() {
       .order('date_paiement', { ascending: false })
       .limit(5)
 
+      // Tous les paiements (sans limite) pour la détection des retards
+    const { data: allPaiementsData } = await supabase
+      .from('paiements')
+      .select('contrat_id, mois_concerne')
+
     const { data: demandesData } = await supabase
       .from('demandes_location')
       .select('*')
@@ -110,21 +115,43 @@ export default function TableauDeBord() {
     const revenuMensuelRecu = (paiementsData || [])
       .reduce((sum, p) => sum + parseFloat(p.montant || 0), 0)
 
-    let loyersEnRetard = 0
-    const jourActuel = aujourdhui.getDate()
-
-    if (jourActuel > 5) {
-      ;(apptsData || []).forEach(appt => {
-        const contratActif = contratsData?.find(c => c.appartement_id === appt.id && c.statut === 'actif')
-        if (contratActif) {
-          const aPayeCeMois = (paiementsData || []).some(p => p.contrat_id === contratActif.id)
-          if (!aPayeCeMois) {
-            loyersEnRetard++
-          }
-        }
-      })
+    // Détection des retards basée sur le "mois concerné" du dernier paiement
+    const moisFrToNumber = (moisStr) => {
+      if (!moisStr) return null
+      const moisMap = {
+        'Janvier': 0, 'Février': 1, 'Mars': 2, 'Avril': 3,
+        'Mai': 4, 'Juin': 5, 'Juillet': 6, 'Août': 7,
+        'Septembre': 8, 'Octobre': 9, 'Novembre': 10, 'Décembre': 11
+      }
+      const parts = moisStr.trim().split(' ')
+      if (parts.length !== 2) return null
+      const mois = moisMap[parts[0]]
+      const annee = parseInt(parts[1])
+      if (mois === undefined || isNaN(annee)) return null
+      return annee * 12 + mois
     }
 
+    const moisCourant = aujourdhui.getFullYear() * 12 + aujourdhui.getMonth()
+
+    let loyersEnRetard = 0
+    ;(contratsData || []).filter(c => c.statut === 'actif').forEach(contrat => {
+      const paiementsContrat = (allPaiementsData || []).filter(p => p.contrat_id === contrat.id)
+      if (paiementsContrat.length === 0) return // Nouveau contrat sans paiement : on ne compte pas
+
+      const moisPayes = paiementsContrat
+        .map(p => moisFrToNumber(p.mois_concerne))
+        .filter(m => m !== null)
+      if (moisPayes.length === 0) return
+
+      const dernierMoisPaye = Math.max(...moisPayes)
+      const difference = moisCourant - dernierMoisPaye
+
+      // Différence ≤ 1 = en ordre, ≥ 2 = en retard
+      if (difference > 1) {
+        loyersEnRetard++
+      }
+    })
+    
     setStats({
       totalAppartements: apptsData?.length || 0,
       loues, vacants, reserves, enRenovation,
