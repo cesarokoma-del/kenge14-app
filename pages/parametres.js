@@ -16,7 +16,7 @@ export default function Parametres() {
   const [modeEdition, setModeEdition] = useState(false)
   const canvasRef = useRef(null)
 
-  // 💰 États pour le solde bancaire
+  // 💰 États pour le entrées manuelles
   const [soldeInitial, setSoldeInitial] = useState(null)
   const [showFormSolde, setShowFormSolde] = useState(false)
   const [savingSolde, setSavingSolde] = useState(false)
@@ -31,7 +31,7 @@ export default function Parametres() {
     chargerSoldeInitial()
   }, [])
 
-  // 💰 Charger le solde initial
+  // 💰 Charger l'Entrée Manuelle
   async function chargerSoldeInitial() {
     const { data } = await getSoldeInitial()
     if (data) {
@@ -44,7 +44,7 @@ export default function Parametres() {
     }
   }
 
-  // 💰 Enregistrer ou modifier le solde initial
+  // 💰 Enregistrer ou modifier l'Entrée Manuelle
   async function handleSubmitSolde(e) {
     e.preventDefault()
     
@@ -82,7 +82,7 @@ export default function Parametres() {
 
     setSoldeInitial(result.data)
     setShowFormSolde(false)
-    alert('✅ Solde bancaire enregistré avec succès !')
+    alert('✅ Entrée manuelle enregistré avec succès !')
   }
 
   async function chargerSignature() {
@@ -237,10 +237,10 @@ export default function Parametres() {
         </div>
       </div>
 
-      {/* 💰 Section Solde Bancaire Initial */}
+      {/* 💰 Section Entrées Manuelles */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 mt-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          💰 Solde Bancaire Initial
+          💰 Entrées Manuelles
         </h2>
         <p className="text-sm text-gray-600 mb-4">
           Cette information sert de point de départ pour le calcul de votre trésorerie. 
@@ -250,7 +250,7 @@ export default function Parametres() {
         {/* Affichage du solde actuel */}
         {soldeInitial && !showFormSolde && (
           <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-5 mb-4">
-            <p className="text-sm text-gray-600 mb-1">Solde initial enregistré :</p>
+            <p className="text-sm text-gray-600 mb-1">Entrée Manuelle enregistrée :</p>
             <p className="text-3xl font-bold text-emerald-700 mb-2">
               {parseFloat(soldeInitial.montant).toLocaleString('fr-FR', { 
                 minimumFractionDigits: 2, 
@@ -272,10 +272,10 @@ export default function Parametres() {
         {!soldeInitial && !showFormSolde && (
           <div className="bg-orange-50 border-2 border-dashed border-orange-300 rounded-xl p-5 mb-4 text-center">
             <p className="text-orange-800 font-semibold mb-2">
-              ⚠️ Aucun solde initial enregistré
+              ⚠️ Aucune Entrée Manuelle enregistrée
             </p>
             <p className="text-sm text-gray-600">
-              Cliquez sur "Saisir mon solde initial" pour commencer le suivi de trésorerie.
+              Cliquez sur "Saisir une entrée manuelle" pour commencer le suivi de trésorerie.
             </p>
           </div>
         )}
@@ -284,7 +284,7 @@ export default function Parametres() {
         {showFormSolde && (
           <form onSubmit={handleSubmitSolde} className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5 mb-4 space-y-4">
             <h3 className="text-lg font-bold text-gray-800">
-              📝 {soldeInitial ? 'Modifier' : 'Saisir'} le solde bancaire
+              📝 {soldeInitial ? 'Modifier' : 'Saisir'} l'entrée manuelle
             </h3>
 
             <div>
@@ -353,7 +353,7 @@ export default function Parametres() {
             onClick={() => setShowFormSolde(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
           >
-            {soldeInitial ? '✏️ Modifier le solde' : '➕ Saisir mon solde initial'}
+            {soldeInitial ? '✏️ Modifier le solde' : '➕ Saisir une entrée manuelle'}
           </button>
         )}
       </div>
