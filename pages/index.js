@@ -151,7 +151,7 @@ export default function TableauDeBord() {
         loyersEnRetard++
       }
     })
-    
+
     setStats({
       totalAppartements: apptsData?.length || 0,
       loues, vacants, reserves, enRenovation,
@@ -274,7 +274,7 @@ export default function TableauDeBord() {
                   <p className="text-sm text-gray-600">💰 Solde Brut</p>
                   <span className="text-2xl">💰</span>
                 </div>
-                <p className="text-3xl font-bold text-emerald-700">{tresorerie.soldeBrut.toFixed(0)} USD</p>
+                <p className={`text-3xl font-bold ${tresorerie.soldeBrut < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{tresorerie.soldeBrut.toFixed(0)} USD</p>
                 <p className="text-xs text-gray-500 mt-1">Total en banque</p>
               </div>
 
@@ -287,14 +287,26 @@ export default function TableauDeBord() {
                 <p className="text-xs text-gray-500 mt-1">À restituer aux locataires</p>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-gray-600">✅ Solde Net</p>
-                  <span className="text-2xl">✅</span>
-                </div>
-                <p className="text-3xl font-bold text-blue-700">{tresorerie.soldeNet.toFixed(0)} USD</p>
-                <p className="text-xs text-gray-500 mt-1">Réellement disponible</p>
+              <div className={`rounded-2xl shadow-lg p-6 border ${
+              tresorerie.soldeNet < 0
+                ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-300'
+                : 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600">{tresorerie.soldeNet < 0 ? '🚨' : '✅'} Solde Net</p>
+                <span className="text-2xl">{tresorerie.soldeNet < 0 ? '🚨' : '✅'}</span>
               </div>
+              <p className={`text-3xl font-bold ${tresorerie.soldeNet < 0 ? 'text-red-600' : 'text-blue-700'}`}>
+                {tresorerie.soldeNet.toFixed(0)} USD
+              </p>
+              {tresorerie.soldeNet < 0 ? (
+                <p className="text-xs text-red-700 mt-1 font-semibold">
+                  ⚠️ Garanties touchées de {Math.abs(tresorerie.soldeNet).toFixed(0)} USD
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Réellement disponible</p>
+              )}
+            </div>
             </div>
           </div>
         )}
