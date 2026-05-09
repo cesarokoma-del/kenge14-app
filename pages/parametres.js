@@ -1,7 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
-import { getSignatureBailleur, setSignatureBailleur } from '../lib/supabase'
+import { 
+  getSignatureBailleur, 
+  setSignatureBailleur,
+  getSoldeInitial,
+  enregistrerSoldeInitial,
+  modifierSoldeInitial
+} from '../lib/supabase'
 
 export default function Parametres() {
   const [signatureActuelle, setSignatureActuelle] = useState(null)
@@ -10,9 +16,74 @@ export default function Parametres() {
   const [modeEdition, setModeEdition] = useState(false)
   const canvasRef = useRef(null)
 
+  // 💰 États pour le solde bancaire
+  const [soldeInitial, setSoldeInitial] = useState(null)
+  const [showFormSolde, setShowFormSolde] = useState(false)
+  const [savingSolde, setSavingSolde] = useState(false)
+  const [formSolde, setFormSolde] = useState({
+    montant: '',
+    date_reference: new Date().toISOString().split('T')[0],
+    notes: ''
+  })
+
   useEffect(() => {
     chargerSignature()
+    chargerSoldeInitial()
   }, [])
+
+  // 💰 Charger le solde initial
+  async function chargerSoldeInitial() {
+    const { data } = await getSoldeInitial()
+    if (data) {
+      setSoldeInitial(data)
+      setFormSolde({
+        montant: data.montant,
+        date_reference: data.date_reference,
+        notes: data.notes || ''
+      })
+    }
+  }
+
+  // 💰 Enregistrer ou modifier le solde initial
+  async function handleSubmitSolde(e) {
+    e.preventDefault()
+    
+    if (!formSolde.montant || parseFloat(formSolde.montant) < 0) {
+      alert('⚠️ Veuillez saisir un montant valide')
+      return
+    }
+
+    setSavingSolde(true)
+
+    let result
+    if (soldeInitial) {
+      // Modification
+      result = await modifierSoldeInitial(
+        soldeInitial.id,
+        formSolde.montant,
+        formSolde.date_reference,
+        formSolde.notes
+      )
+    } else {
+      // Création
+      result = await enregistrerSoldeInitial(
+        formSolde.montant,
+        formSolde.date_reference,
+        formSolde.notes
+      )
+    }
+
+    setSavingSolde(false)
+
+    if (result.error) {
+      alert('❌ Erreur : ' + result.error.message)
+      return
+    }
+
+    setSoldeInitial(result.data)
+    setShowFormSolde(false)
+    alert('✅ Solde bancaire enregistré avec succès !')
+  }
 
   async function chargerSignature() {
     setLoading(true)
@@ -164,6 +235,128 @@ export default function Parametres() {
             Ces informations sont utilisées dans tous les contrats générés.
           </p>
         </div>
+      </div>
+
+      {/* 💰 Section Solde Bancaire Initial */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 mt-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          💰 Solde Bancaire Initial
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Cette information sert de point de départ pour le calcul de votre trésorerie. 
+          Saisissez le montant disponible sur votre compte à une date de référence.
+        </p>
+
+        {/* Affichage du solde actuel */}
+        {soldeInitial && !showFormSolde && (
+          <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-5 mb-4">
+            <p className="text-sm text-gray-600 mb-1">Solde initial enregistré :</p>
+            <p className="text-3xl font-bold text-emerald-700 mb-2">
+              {parseFloat(soldeInitial.montant).toLocaleString('fr-FR', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+              })} USD
+            </p>
+            <p className="text-sm text-gray-700">
+              📅 Date de référence : <strong>{new Date(soldeInitial.date_reference).toLocaleDateString('fr-FR')}</strong>
+            </p>
+            {soldeInitial.notes && (
+              <p className="text-sm text-gray-600 mt-2 italic">
+                📝 {soldeInitial.notes}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Message si pas de solde */}
+        {!soldeInitial && !showFormSolde && (
+          <div className="bg-orange-50 border-2 border-dashed border-orange-300 rounded-xl p-5 mb-4 text-center">
+            <p className="text-orange-800 font-semibold mb-2">
+              ⚠️ Aucun solde initial enregistré
+            </p>
+            <p className="text-sm text-gray-600">
+              Cliquez sur "Saisir mon solde initial" pour commencer le suivi de trésorerie.
+            </p>
+          </div>
+        )}
+
+        {/* Formulaire de saisie/modification */}
+        {showFormSolde && (
+          <form onSubmit={handleSubmitSolde} className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5 mb-4 space-y-4">
+            <h3 className="text-lg font-bold text-gray-800">
+              📝 {soldeInitial ? 'Modifier' : 'Saisir'} le solde bancaire
+            </h3>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                📅 Date de référence <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={formSolde.date_reference}
+                onChange={(e) => setFormSolde({ ...formSolde, date_reference: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                💵 Montant en USD <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formSolde.montant}
+                onChange={(e) => setFormSolde({ ...formSolde, montant: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                placeholder="Ex : 5000.00"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                📝 Notes (optionnel)
+              </label>
+              <textarea
+                value={formSolde.notes}
+                onChange={(e) => setFormSolde({ ...formSolde, notes: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                rows="2"
+                placeholder="Ex : Solde après audit Equity-BCDC"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={savingSolde}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+              >
+                {savingSolde ? '⏳ Enregistrement...' : '💾 Enregistrer'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFormSolde(false)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold"
+              >
+                Annuler
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Bouton pour ouvrir le formulaire */}
+        {!showFormSolde && (
+          <button
+            onClick={() => setShowFormSolde(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+          >
+            {soldeInitial ? '✏️ Modifier le solde' : '➕ Saisir mon solde initial'}
+          </button>
+        )}
       </div>
     </Layout>
   )
