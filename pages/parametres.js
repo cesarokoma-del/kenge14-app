@@ -16,7 +16,7 @@ export default function Parametres() {
   const [modeEdition, setModeEdition] = useState(false)
   const canvasRef = useRef(null)
 
-  // 💰 États pour le entrées manuelles
+  // 💰 États pour les entrées manuelles
   const [soldeInitial, setSoldeInitial] = useState(null)
   const [showFormSolde, setShowFormSolde] = useState(false)
   const [savingSolde, setSavingSolde] = useState(false)
@@ -82,7 +82,7 @@ export default function Parametres() {
 
     setSoldeInitial(result.data)
     setShowFormSolde(false)
-    alert('✅ Entrée manuelle enregistré avec succès !')
+    alert('✅ Entrée manuelle enregistrée avec succès !')
   }
 
   async function chargerSignature() {
@@ -243,8 +243,7 @@ export default function Parametres() {
           💰 Entrées Manuelles
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          Cette information sert de point de départ pour le calcul de votre trésorerie. 
-          Saisissez le montant disponible sur votre compte à une date de référence.
+          Cette entrée représente un ajustement manuel (solde de démarrage, dépôt cash, ou correction comptable). Peut être positive ou négative.
         </p>
 
         {/* Affichage du solde actuel */}
@@ -353,7 +352,7 @@ export default function Parametres() {
             onClick={() => setShowFormSolde(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
           >
-            {soldeInitial ? '✏️ Modifier le solde' : '➕ Saisir une entrée manuelle'}
+            {soldeInitial ? '✏️ Modifier' : '➕ Saisir une entrée manuelle'}
           </button>
         )}
       </div>
