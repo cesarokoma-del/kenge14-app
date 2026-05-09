@@ -163,6 +163,86 @@ export default function Paiements() {
 
   const contratsActifs = contrats.filter(c => c.statut === 'actif')
 
+  // 🚨 Calcul des loyers en retard (basé sur mois_concerne)
+  const moisFrToNumber = (moisStr) => {
+    if (!moisStr) return null
+    const moisMap = {
+      'Janvier': 0, 'Février': 1, 'Mars': 2, 'Avril': 3,
+      'Mai': 4, 'Juin': 5, 'Juillet': 6, 'Août': 7,
+      'Septembre': 8, 'Octobre': 9, 'Novembre': 10, 'Décembre': 11
+    }
+    const parts = moisStr.trim().split(' ')
+    if (parts.length !== 2) return null
+    const mois = moisMap[parts[0]]
+    const annee = parseInt(parts[1])
+    if (mois === undefined || isNaN(annee)) return null
+    return annee * 12 + mois
+  }
+
+  const numberToMoisFr = (n) => {
+    const moisNoms = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+    const annee = Math.floor(n / 12)
+    const mois = n % 12
+    return `${moisNoms[mois]} ${annee}`
+  }
+
+  const moisCourant = aujourdhui.getFullYear() * 12 + aujourdhui.getMonth()
+
+  const loyersEnRetardDetail = contratsActifs
+    .map(contrat => {
+      const paiementsContrat = paiements.filter(p => p.contrat_id === contrat.id)
+      const moisPayes = paiementsContrat
+        .map(p => moisFrToNumber(p.mois_concerne))
+        .filter(m => m !== null)
+
+      if (moisPayes.length === 0) {
+        // Contrat sans paiement enregistré : on ne compte pas comme retard
+        return null
+      }
+
+      const dernierMoisPaye = Math.max(...moisPayes)
+      const moisDeRetard = moisCourant - dernierMoisPaye
+
+      if (moisDeRetard <= 1) return null // En ordre
+
+      return {
+        contrat,
+        dernierMoisPaye: numberToMoisFr(dernierMoisPaye),
+        moisDeRetard: moisDeRetard - 1, // -1 car on accepte 1 mois de décalage
+        montantDu: parseFloat(contrat.loyer || 0) * (moisDeRetard - 1)
+      }
+    })
+    .filter(item => item !== null)
+
+  // 📱 Génération du lien WhatsApp
+  const genererLienWhatsApp = (item) => {
+    const numero = item.contrat.locataire?.telephone?.replace(/[^0-9]/g, '') || ''
+    const nom = item.contrat.locataire?.noms_complet || 'Locataire'
+    const apt = item.contrat.appartement?.nom || 'votre appartement'
+    const dernierMois = item.dernierMoisPaye
+    const retard = item.moisDeRetard
+    const montant = item.montantDu.toFixed(0)
+
+    const message = `Bonjour ${nom},
+
+J'espère que vous allez bien.
+
+Je me permets de vous écrire concernant le paiement du loyer de ${apt}. Votre dernier paiement enregistré concerne le mois de ${dernierMois}.
+
+À ce jour, vous avez ${retard} mois de loyer en retard, soit un montant de ${montant} USD à régulariser.
+
+Pourriez-vous me confirmer le paiement dans les meilleurs délais ?
+
+Merci de votre attention.
+
+Cordialement,
+M. Cesar OKOMA
+KENGE 14 - Gestion Locative`
+
+    return `https://wa.me/${numero}?text=${encodeURIComponent(message)}`
+  }
+
   if (loading) {
     return (
       <Layout activePage="paiements">
@@ -279,6 +359,60 @@ export default function Paiements() {
               <button type="button" onClick={resetForm} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold">Annuler</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* 🚨 Section Loyers en retard */}
+      {loyersEnRetardDetail.length > 0 && (
+        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl shadow-lg p-6 border border-red-300 mb-6">
+          <h2 className="text-2xl font-bold text-red-800 mb-4">
+            🚨 Loyers en retard ({loyersEnRetardDetail.length})
+          </h2>
+          <div className="space-y-4">
+            {loyersEnRetardDetail.map((item, idx) => (
+              <div key={idx} className="bg-white rounded-xl p-5 border border-red-200 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-lg font-bold text-gray-800">
+                        👤 {item.contrat.locataire?.noms_complet || '?'}
+                      </span>
+                      <span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+                        {item.contrat.appartement?.nom || '?'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                      <p className="text-gray-600">
+                        📅 Dernier paiement : <strong>{item.dernierMoisPaye}</strong>
+                      </p>
+                      <p className="text-red-700 font-semibold">
+                        ⏰ {item.moisDeRetard} mois de retard
+                      </p>
+                      <p className="text-gray-800 font-bold">
+                        💰 {item.montantDu.toFixed(0)} USD à recouvrer
+                      </p>
+                    </div>
+                  </div>
+                  {item.contrat.locataire?.telephone ? (
+
+                    <a
+                    
+                      href={genererLienWhatsApp(item)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold text-center whitespace-nowrap transition shadow-md"
+                    >
+                      📱 Relancer par WhatsApp
+                    </a>
+                  ) : (
+                    <span className="bg-gray-200 text-gray-500 px-4 py-2 rounded-lg text-sm text-center">
+                      ⚠️ Pas de numéro
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
