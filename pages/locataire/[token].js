@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
+import { jsPDF } from 'jspdf'
 import { getEspaceLocataire } from '../../lib/supabase'
 
 export default function EspaceLocataire() {
@@ -38,7 +39,6 @@ export default function EspaceLocataire() {
     const dateDebut = new Date(data.contrat.date_debut)
     const aujourdhui = new Date()
     
-    // Nombre de mois écoulés depuis le début du contrat
     const moisEcoules = Math.max(0, 
       (aujourdhui.getFullYear() - dateDebut.getFullYear()) * 12 +
       (aujourdhui.getMonth() - dateDebut.getMonth())
@@ -57,7 +57,7 @@ export default function EspaceLocataire() {
     }
   }
 
-  // Calculer le prochain loyer dû (mois courant si pas encore passé, sinon mois suivant)
+  // Calculer le prochain loyer dû
   function getProchainLoyerDu() {
     if (!data?.contrat) return null
     
@@ -65,32 +65,247 @@ export default function EspaceLocataire() {
     const jourDuMois = dateDebut.getDate()
     const aujourdhui = new Date()
     
-    // Helper : crée une date en clampant au dernier jour si le jour n'existe pas
-    // (ex: 31 février → 28 ou 29 février, 31 juin → 30 juin)
     function dateAvecClamp(annee, mois, jour) {
       const dernierJour = new Date(annee, mois + 1, 0).getDate()
       return new Date(annee, mois, Math.min(jour, dernierJour))
     }
     
-    // Loyer du mois courant
     const loyerCeMois = dateAvecClamp(
       aujourdhui.getFullYear(),
       aujourdhui.getMonth(),
       jourDuMois
     )
     
-    // Si on n'a pas encore passé la date de ce mois → c'est ça le prochain
     if (aujourdhui <= loyerCeMois) {
       return loyerCeMois
     }
     
-    // Sinon → mois prochain
     return dateAvecClamp(
       aujourdhui.getFullYear(),
       aujourdhui.getMonth() + 1,
       jourDuMois
     )
   }
+
+  // ============================================
+  // GÉNÉRATION DU REÇU PDF
+  // ============================================
+
+  // Convertit un nombre en lettres françaises (jusqu'à 99 999)
+  function nombreEnLettres(n) {
+    const unites = ['', 'UN', 'DEUX', 'TROIS', 'QUATRE', 'CINQ', 'SIX', 'SEPT', 'HUIT', 'NEUF']
+    const dizaines10_19 = ['DIX', 'ONZE', 'DOUZE', 'TREIZE', 'QUATORZE', 'QUINZE', 'SEIZE', 'DIX-SEPT', 'DIX-HUIT', 'DIX-NEUF']
+    const dizaines = ['', '', 'VINGT', 'TRENTE', 'QUARANTE', 'CINQUANTE', 'SOIXANTE', 'SOIXANTE', 'QUATRE-VINGT', 'QUATRE-VINGT']
+
+    if (n === 0) return 'ZERO'
+    
+    function moinsDe1000(num) {
+      let resultat = ''
+      const centaines = Math.floor(num / 100)
+      const reste = num % 100
+      
+      if (centaines > 0) {
+        resultat += (centaines === 1 ? 'CENT' : unites[centaines] + ' CENT')
+        if (reste === 0 && centaines > 1) resultat += 'S'
+        if (reste > 0) resultat += ' '
+      }
+      
+      if (reste === 0) return resultat.trim()
+      
+      if (reste < 10) {
+        resultat += unites[reste]
+      } else if (reste < 20) {
+        resultat += dizaines10_19[reste - 10]
+      } else {
+        const diz = Math.floor(reste / 10)
+        const uni = reste % 10
+        if (diz === 7 || diz === 9) {
+          resultat += dizaines[diz] + '-' + dizaines10_19[uni]
+        } else {
+          resultat += dizaines[diz]
+          if (uni === 1 && diz < 8) resultat += ' ET UN'
+          else if (uni > 0) resultat += '-' + unites[uni]
+          else if (diz === 8) resultat += 'S'
+        }
+      }
+      
+      return resultat.trim()
+    }
+    
+    if (n < 1000) return moinsDe1000(n)
+    
+    const milliers = Math.floor(n / 1000)
+    const reste = n % 1000
+    let resultat = (milliers === 1 ? 'MILLE' : moinsDe1000(milliers) + ' MILLE')
+    if (reste > 0) resultat += ' ' + moinsDe1000(reste)
+    return resultat
+  }
+
+  // Génère le numéro de reçu : REC-NOMS-YYYY-MM
+  function genererNumeroRecu(paiement, locataire) {
+    const premierNom = (locataire.noms_complet || 'LOC').split(' ')[0].toUpperCase()
+    
+    const moisFr = ['janvier', 'fevrier', 'février', 'mars', 'avril', 'mai', 'juin', 
+                    'juillet', 'aout', 'août', 'septembre', 'octobre', 'novembre', 'decembre', 'décembre']
+    const moisNum = ['01', '02', '02', '03', '04', '05', '06', '07', '08', '08', '09', '10', '11', '12', '12']
+    
+    let anneeMois = 'XXXX-XX'
+    if (paiement.mois_concerne) {
+      const parts = paiement.mois_concerne.toLowerCase().split(' ')
+      const moisIdx = moisFr.indexOf(parts[0])
+      const annee = parts[1] || new Date(paiement.date_paiement).getFullYear()
+      if (moisIdx >= 0) {
+        anneeMois = `${annee}-${moisNum[moisIdx]}`
+      }
+    } else {
+      const d = new Date(paiement.date_paiement)
+      anneeMois = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+    
+    return `REC-${premierNom}-${anneeMois}`
+  }
+
+  function genererRecuPDF(paiement) {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 20
+    let y = 25
+
+    // === EN-TÊTE COLORÉ ===
+    doc.setFillColor(5, 150, 105)
+    doc.rect(0, 0, pageWidth, 35, 'F')
+    
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(22)
+    doc.text('KENGE 14', margin, 18)
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text('Gestion Locative Professionnelle', margin, 26)
+    doc.text('Kinshasa, RDC', margin, 31)
+    
+    y = 50
+
+    // === TITRE ===
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text('REÇU DE PAIEMENT DE LOYER', pageWidth / 2, y, { align: 'center' })
+    y += 15
+
+    // === N° de reçu et date d'émission ===
+    const numeroRecu = genererNumeroRecu(paiement, data.locataire)
+    const dateEmission = new Date().toLocaleDateString('fr-FR', { 
+      day: 'numeric', month: 'long', year: 'numeric' 
+    })
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(80, 80, 80)
+    doc.text(`N° de reçu : ${numeroRecu}`, margin, y)
+    doc.text(`Date d'émission : ${dateEmission}`, pageWidth - margin, y, { align: 'right' })
+    y += 8
+    
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 12
+
+    // === LOCATAIRE ===
+    doc.setTextColor(5, 150, 105)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('LOCATAIRE', margin, y)
+    y += 7
+    
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.text(`Nom : ${data.locataire.noms_complet || 'N/A'}`, margin, y)
+    y += 6
+    doc.text(`Appartement : ${data.contrat?.appartement?.nom || 'N/A'}`, margin, y)
+    y += 12
+
+    // === PAIEMENT ===
+    doc.setTextColor(5, 150, 105)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('DÉTAILS DU PAIEMENT', margin, y)
+    y += 7
+    
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    
+    const montant = parseFloat(paiement.montant)
+    doc.text(`Montant : ${montant.toFixed(0)} USD`, margin, y)
+    y += 6
+    doc.text(`Mois concerné : ${paiement.mois_concerne || 'N/A'}`, margin, y)
+    y += 6
+    doc.text(`Date de paiement : ${new Date(paiement.date_paiement).toLocaleDateString('fr-FR', { 
+      day: 'numeric', month: 'long', year: 'numeric' 
+    })}`, margin, y)
+    y += 6
+    
+    const methode = (paiement.methode || 'N/A').replace(/_/g, ' ')
+    doc.text(`Méthode : ${methode.charAt(0).toUpperCase() + methode.slice(1)}`, margin, y)
+    y += 6
+    doc.text(`Statut : ${paiement.statut === 'recu' ? 'Reçu ✓' : paiement.statut}`, margin, y)
+    y += 12
+
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 12
+
+    // === TEXTE OFFICIEL ===
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    const montantLettres = nombreEnLettres(Math.floor(montant))
+    const texteOfficiel = `Je soussigné, Cesar Okoma, bailleur de l'immeuble KENGE 14, ` +
+      `confirme avoir reçu de ${data.locataire.noms_complet} la somme de ` +
+      `${montantLettres} DOLLARS AMÉRICAINS (${montant.toFixed(0)} USD) ` +
+      `au titre du loyer du mois de ${paiement.mois_concerne || 'N/A'} ` +
+      `pour l'appartement ${data.contrat?.appartement?.nom || ''}.`
+    
+    const lignesTexte = doc.splitTextToSize(texteOfficiel, pageWidth - 2 * margin)
+    doc.text(lignesTexte, margin, y)
+    y += lignesTexte.length * 6 + 15
+
+    // === SIGNATURE ===
+    doc.text('Fait à Kinshasa,', pageWidth - margin - 50, y)
+    y += 6
+    doc.text(`le ${dateEmission}`, pageWidth - margin - 50, y)
+    y += 18
+    
+    doc.setFont('helvetica', 'bold')
+    doc.text('Cesar Okoma', pageWidth - margin - 50, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(100, 100, 100)
+    doc.text('Bailleur', pageWidth - margin - 50, y)
+
+    // === FOOTER ===
+    const footerY = doc.internal.pageSize.getHeight() - 15
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5)
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(
+      'KENGE 14 • Gestion Locative Professionnelle • Document généré électroniquement',
+      pageWidth / 2,
+      footerY,
+      { align: 'center' }
+    )
+
+    // === TÉLÉCHARGEMENT ===
+    const nomFichier = `Recu_KENGE14_${(data.locataire.noms_complet || 'Locataire').replace(/\s+/g, '-')}_${(paiement.mois_concerne || 'paiement').replace(/\s+/g, '-')}.pdf`
+    doc.save(nomFichier)
+  }
+
+  // ============================================
+  // RENDU
+  // ============================================
 
   if (loading) {
     return (
@@ -234,9 +449,9 @@ export default function EspaceLocataire() {
               {paiementsAffiches.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-2"
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <p className="font-semibold text-gray-800">
                         {parseFloat(p.montant).toFixed(0)} USD
@@ -255,7 +470,13 @@ export default function EspaceLocataire() {
                       })}
                     </p>
                   </div>
-                  <span className="text-emerald-600 text-sm font-medium ml-2">✓ Reçu</span>
+                  <button
+                    onClick={() => genererRecuPDF(p)}
+                    className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+                    title="Télécharger le reçu PDF"
+                  >
+                    📥 Reçu
+                  </button>
                 </div>
               ))}
             </div>
