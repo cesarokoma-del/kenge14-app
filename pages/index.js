@@ -103,11 +103,17 @@ export default function TableauDeBord() {
         revenuMensuelAttendu += parseFloat(contratActif.loyer || 0)
 
         if (contratActif.date_fin) {
-          const dateFin = new Date(contratActif.date_fin)
-          if (dateFin >= aujourdhui && dateFin <= dans90Jours) {
-            contratsExpirant++
-          }
+      const dateFin = new Date(contratActif.date_fin)
+      if (dateFin >= aujourdhui && dateFin <= dans90Jours) {
+        // Ne pas compter comme "expirant" si un contrat futur prend déjà le relais
+        const aDejaUnSuccesseur = contratsData?.some(c => 
+          c.appartement_id === appt.id && c.statut === 'futur'
+        )
+        if (!aDejaUnSuccesseur) {
+          contratsExpirant++
         }
+      }
+    }
       } else if (demandeApprouvee) {
         reserves++
       } else {
