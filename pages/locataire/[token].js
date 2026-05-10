@@ -57,15 +57,39 @@ export default function EspaceLocataire() {
     }
   }
 
-  // Calculer le prochain loyer dû
   function getProchainLoyerDu() {
     if (!data?.contrat) return null
+    
     const dateDebut = new Date(data.contrat.date_debut)
+    const jourDuMois = dateDebut.getDate()
     const aujourdhui = new Date()
-    const prochain = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, dateDebut.getDate())
-    return prochain
+    
+    // Helper : crée une date en clampant au dernier jour si le jour n'existe pas
+    // (ex: 31 février → 28 ou 29 février, 31 juin → 30 juin)
+    function dateAvecClamp(annee, mois, jour) {
+      const dernierJour = new Date(annee, mois + 1, 0).getDate()
+      return new Date(annee, mois, Math.min(jour, dernierJour))
+    }
+    
+    // Loyer du mois courant
+    const loyerCeMois = dateAvecClamp(
+      aujourdhui.getFullYear(),
+      aujourdhui.getMonth(),
+      jourDuMois
+    )
+    
+    // Si on n'a pas encore passé la date de ce mois → c'est ça le prochain
+    if (aujourdhui <= loyerCeMois) {
+      return loyerCeMois
+    }
+    
+    // Sinon → mois prochain
+    return dateAvecClamp(
+      aujourdhui.getFullYear(),
+      aujourdhui.getMonth() + 1,
+      jourDuMois
+    )
   }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
