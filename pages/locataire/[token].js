@@ -250,7 +250,7 @@ export default function EspaceLocataire() {
     const methode = (paiement.methode || 'N/A').replace(/_/g, ' ')
     doc.text(`Méthode : ${methode.charAt(0).toUpperCase() + methode.slice(1)}`, margin, y)
     y += 6
-    doc.text(`Statut : ${paiement.statut === 'recu' ? 'Reçu ✓' : paiement.statut}`, margin, y)
+    doc.text(`Statut : ${paiement.statut === 'recu' ? 'Reçu (validé)' : paiement.statut}`, margin, y)
     y += 12
 
     doc.setDrawColor(200, 200, 200)
