@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
+import RouteGuard from '../components/RouteGuard'
 import { supabase } from '../lib/supabase'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
@@ -329,11 +330,13 @@ export default function Contrats() {
 
   if (loading) {
     return (
-      <Layout activePage="contrats">
+      <RouteGuard rolesAutorises={['bailleur']}>
+        <Layout activePage="...">
         <div className="flex justify-center items-center h-64">
           <div className="text-emerald-600 text-xl">Chargement...</div>
         </div>
-      </Layout>
+         </Layout>
+      </RouteGuard>
     )
   }
 

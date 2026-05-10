@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
+import RouteGuard from '../components/RouteGuard'
 import SignatureCanvas from '../components/SignatureCanvas'
 import { 
   getSignatureBailleur, 
@@ -128,16 +129,19 @@ export default function Parametres() {
 
   if (loading) {
     return (
-      <Layout activePage="parametres">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-emerald-600 text-xl">Chargement...</div>
-        </div>
-      </Layout>
+      <RouteGuard rolesAutorises={['bailleur']}>
+        <Layout activePage="parametres">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-emerald-600 text-xl">Chargement...</div>
+          </div>
+        </Layout>
+      </RouteGuard>
     )
   }
 
   return (
-    <Layout activePage="parametres">
+    <RouteGuard rolesAutorises={['bailleur']}>
+      <Layout activePage="parametres">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">⚙️ Paramètres</h1>
 
@@ -356,6 +360,7 @@ export default function Parametres() {
           </button>
         )}
       </div>
-    </Layout>
+  </Layout>
+    </RouteGuard>
   )
 }

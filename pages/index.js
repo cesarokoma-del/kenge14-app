@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Layout from '../components/Layout'
+import RouteGuard from '../components/RouteGuard'
 import { supabase, calculerSoldeBancaire } from '../lib/supabase'
 
 export default function TableauDeBord() {
@@ -181,11 +182,13 @@ export default function TableauDeBord() {
 
   if (loading) {
     return (
-      <Layout activePage="dashboard">
+      <RouteGuard rolesAutorises={['bailleur']}>
+        <Layout activePage="...">
         <div className="flex justify-center items-center h-64">
           <div className="text-emerald-600 text-xl">Chargement...</div>
         </div>
-      </Layout>
+        </Layout>
+      </RouteGuard>
     )
   }
 
