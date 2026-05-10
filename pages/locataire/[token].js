@@ -57,6 +57,7 @@ export default function EspaceLocataire() {
     }
   }
 
+  // Calculer le prochain loyer dû (mois courant si pas encore passé, sinon mois suivant)
   function getProchainLoyerDu() {
     if (!data?.contrat) return null
     
@@ -90,6 +91,7 @@ export default function EspaceLocataire() {
       jourDuMois
     )
   }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -234,19 +236,26 @@ export default function EspaceLocataire() {
                   key={p.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                 >
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {parseFloat(p.montant).toFixed(0)} USD
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {new Date(p.date_paiement).toLocaleDateString('fr-FR', {
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <p className="font-semibold text-gray-800">
+                        {parseFloat(p.montant).toFixed(0)} USD
+                      </p>
+                      {p.mois_concerne && (
+                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">
+                          Loyer {p.mois_concerne}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Payé le {new Date(p.date_paiement).toLocaleDateString('fr-FR', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric'
                       })}
                     </p>
                   </div>
-                  <span className="text-emerald-600 text-sm font-medium">✓ Reçu</span>
+                  <span className="text-emerald-600 text-sm font-medium ml-2">✓ Reçu</span>
                 </div>
               ))}
             </div>
@@ -267,9 +276,9 @@ export default function EspaceLocataire() {
           </p>
         </div>
       </div>
+
       {/* Bouton WhatsApp flottant */}
       <a
-      
         href={`https://wa.me/18173538862?text=${encodeURIComponent(
           `Bonjour, je suis ${locataire.noms_complet}, locataire ${contrat?.appartement?.nom || ''}. `
         )}`}
