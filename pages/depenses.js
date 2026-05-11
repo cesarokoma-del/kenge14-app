@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import { getSoldeGerant, getPremierGerantId } from '../lib/comptesGerants'
 
 export default function Depenses() {
   const [depenses, setDepenses] = useState([])
@@ -9,6 +10,13 @@ export default function Depenses() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [filterCategorie, setFilterCategorie] = useState('toutes')
+  const [soldeGerant, setSoldeGerant] = useState({
+    totalApprovisionne: 0,
+    totalDepense: 0,
+    soldeNet: 0,
+    nombreApprovisionnements: 0,
+    nombreDepenses: 0
+  })
   const [formData, setFormData] = useState({
     appartement_id: '',
     categorie: 'maintenance',
@@ -53,6 +61,15 @@ export default function Depenses() {
 
     setDepenses(depensesEnrichies)
     setAppartements(apptsData || [])
+
+    // 💰 Solde Compte Gérant via le helper getSoldeGerant()
+    const gerantId = await getPremierGerantId()
+    
+    if (gerantId) {
+      const solde = await getSoldeGerant(gerantId)      
+      setSoldeGerant(solde)
+    } 
+
     setLoading(false)
   }
 
@@ -166,19 +183,8 @@ export default function Depenses() {
 
   const totalAnnee = depenses
     .filter(d => new Date(d.date_depense).getFullYear() === aujourdhui.getFullYear())
-    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
-
-    // 💰 Solde Compte Gérant = Σ approvisionnements − Σ dépenses gérant
-  // Note: `depenses` est déjà filtré (sans les dépenses gérant), donc on ne voit que les approvisionnements ici
-  const totalApprovisionnements = depenses
-    .filter(d => d.categorie === 'approvisionnement_gerant')
-    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
-
-  // Les dépenses gérant sont dans `depensesRaw` (avant filtre), il faut les refetch
-  // Pour C1.3 on calcule en se basant sur les seuls approvisionnements visibles côté bailleur
-  // En C2/C3 on fera un vrai helper `getSoldeGerant()` qui requête les 2 séries
-  const soldeGerantEstime = totalApprovisionnements
-
+    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)  
+   
   const depensesFiltrees = filterCategorie === 'toutes'
     ? depenses
     : depenses.filter(d => d.categorie === filterCategorie)
@@ -250,7 +256,7 @@ export default function Depenses() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm text-gray-600 mb-1">💰 Compte Gérant — Total approvisionné</p>
-                <p className="text-3xl font-bold text-amber-700">{soldeGerantEstime.toFixed(0)} USD</p>
+                <p className="text-3xl font-bold text-amber-700">{soldeGerant.soldeNet.toFixed(0)} USD</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Total versé au compte gérant cette année
                 </p>
