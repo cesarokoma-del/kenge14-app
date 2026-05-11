@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
+import JournalAudit from '../components/JournalAudit'
 import SignatureCanvas from '../components/SignatureCanvas'
 import { 
   getSignatureBailleur, 
@@ -360,6 +361,7 @@ export default function Parametres() {
           </button>
         )}
       </div>
+      <JournalAudit />
   </Layout>
     </RouteGuard>
   )
