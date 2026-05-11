@@ -2,9 +2,33 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Navigation from './Navigation'
 import { signOut, getSession } from '../lib/supabase'
+import { getProfilUtilisateur } from '../lib/supabase'
+import LayoutGerant from './LayoutGerant'
 
 export default function Layout({ children, activePage }) {
   const router = useRouter()
+  // 🎯 Phase 3.5 : si gérant, déléguer à LayoutGerant
+  const [roleVerifie, setRoleVerifie] = useState(false)
+  const [estGerant, setEstGerant] = useState(false)
+
+  useEffect(() => {
+    async function detecterRole() {
+      const { role } = await getProfilUtilisateur()
+      setEstGerant(role === 'gerant')
+      setRoleVerifie(true)
+    }
+    detecterRole()
+  }, [])
+
+  // Pendant la vérif → écran vide neutre
+  if (!roleVerifie) {
+    return <div className="min-h-screen bg-gray-50" />
+  }
+
+  // Si gérant → déléguer à LayoutGerant
+  if (estGerant) {
+    return <LayoutGerant activePage={activePage}>{children}</LayoutGerant>
+  }
   const [emailUtilisateur, setEmailUtilisateur] = useState('')
   const [deconnexionEnCours, setDeconnexionEnCours] = useState(false)
 

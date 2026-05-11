@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
+import { supabase, getProfilUtilisateur } from '../lib/supabase'
 
 export default function Demandes() {
   const [demandes, setDemandes] = useState([])
@@ -8,10 +8,17 @@ export default function Demandes() {
   const [loading, setLoading] = useState(true)
   const [filterStatut, setFilterStatut] = useState('en_attente')
   const [showLienModal, setShowLienModal] = useState(false)
+  const [roleUtilisateur, setRoleUtilisateur] = useState(null)
   const [lienGenere, setLienGenere] = useState('')
 
   useEffect(() => {
     chargerDonnees()
+    async function detecterRole() {
+      const { role } = await getProfilUtilisateur()
+      setRoleUtilisateur(role)
+      if (role === 'gerant') setFilterStatut('toutes')
+    }
+    detecterRole()
   }, [])
 
   async function chargerDonnees() {
@@ -174,19 +181,19 @@ export default function Demandes() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <button onClick={() => setFilterStatut('en_attente')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'en_attente' ? 'bg-yellow-200 border-2 border-yellow-500' : 'bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200'}`}>
+        <button onClick={() => roleUtilisateur !== 'gerant' && setFilterStatut('en_attente')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'en_attente' ? 'bg-yellow-200 border-2 border-yellow-500' : 'bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200'} ${roleUtilisateur === 'gerant' ? 'cursor-default' : 'cursor-pointer'}`}>
           <p className="text-sm text-gray-600">⏳ En attente</p>
           <p className="text-3xl font-bold text-yellow-700">{stats.en_attente}</p>
         </button>
-        <button onClick={() => setFilterStatut('approuvee')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'approuvee' ? 'bg-emerald-200 border-2 border-emerald-500' : 'bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200'}`}>
+        <button onClick={() => roleUtilisateur !== 'gerant' && setFilterStatut('approuvee')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'approuvee' ? 'bg-emerald-200 border-2 border-emerald-500' : 'bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200'} ${roleUtilisateur === 'gerant' ? 'cursor-default' : 'cursor-pointer'}`}>
           <p className="text-sm text-gray-600">✅ Approuvées</p>
           <p className="text-3xl font-bold text-emerald-700">{stats.approuvee}</p>
         </button>
-        <button onClick={() => setFilterStatut('refusee')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'refusee' ? 'bg-red-200 border-2 border-red-500' : 'bg-gradient-to-br from-red-50 to-red-100 border border-red-200'}`}>
+        <button onClick={() => roleUtilisateur !== 'gerant' && setFilterStatut('refusee')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'refusee' ? 'bg-red-200 border-2 border-red-500' : 'bg-gradient-to-br from-red-50 to-red-100 border border-red-200'} ${roleUtilisateur === 'gerant' ? 'cursor-default' : 'cursor-pointer'}`}>
           <p className="text-sm text-gray-600">❌ Refusées</p>
           <p className="text-3xl font-bold text-red-700">{stats.refusee}</p>
         </button>
-        <button onClick={() => setFilterStatut('toutes')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'toutes' ? 'bg-gray-200 border-2 border-gray-500' : 'bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200'}`}>
+        <button onClick={() => roleUtilisateur !== 'gerant' && setFilterStatut('toutes')} className={`rounded-2xl shadow-lg p-6 text-left transition ${filterStatut === 'toutes' ? 'bg-gray-200 border-2 border-gray-500' : 'bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200'} ${roleUtilisateur === 'gerant' ? 'cursor-default' : 'cursor-pointer'}`}>
           <p className="text-sm text-gray-600">📋 Toutes</p>
           <p className="text-3xl font-bold text-gray-700">{demandes.length}</p>
         </button>
@@ -244,14 +251,14 @@ export default function Demandes() {
                 <div className="flex flex-wrap gap-2 mt-4">
                   {d.statut === 'en_attente' && (
                     <>
-                      <button onClick={() => approuverDemande(d)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition">✅ Approuver</button>
-                      <button onClick={() => refuserDemande(d)} className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">❌ Refuser</button>
+                      <button onClick={() => approuverDemande(d)} disabled={roleUtilisateur === 'gerant'} title={roleUtilisateur === 'gerant' ? 'Action réservée au bailleur' : ''} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">✅ Approuver</button>
+                      <button onClick={() => refuserDemande(d)} disabled={roleUtilisateur === 'gerant'} title={roleUtilisateur === 'gerant' ? 'Action réservée au bailleur' : ''} className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">❌ Refuser</button>
                     </>
                   )}
                   {d.telephone && (
                     <a href={`https://wa.me/${d.telephone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded-lg text-sm font-semibold transition text-center">💬 Contact</a>
                   )}
-                  <button onClick={() => supprimerDemande(d.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
+                  <button onClick={() => supprimerDemande(d.id)} disabled={roleUtilisateur === 'gerant'} title={roleUtilisateur === 'gerant' ? 'Action réservée au bailleur' : ''} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">🗑️</button>
                 </div>
               </div>
             ))}
