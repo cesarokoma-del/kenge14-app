@@ -233,7 +233,7 @@ export default function Demandes() {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-700">
-                  {d.appartement && <p>🏢 <strong>{d.appartement.nom}</strong> ({d.appartement.loyer_base} USD/mois)</p>}
+                  {d.appartement && <p>🏢 <strong>{d.appartement.nom}</strong>{roleUtilisateur !== 'gerant' && <span> ({d.appartement.loyer_base} USD/mois)</span>}</p>}
                   {d.telephone && <p>📱 <a href={`tel:${d.telephone}`} className="text-emerald-700 hover:underline">{d.telephone}</a></p>}
                   {d.email && <p>✉️ {d.email}</p>}
                   {d.profession && <p>💼 {d.profession}</p>}

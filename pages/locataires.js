@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
+import { supabase, getProfilUtilisateur } from '../lib/supabase'
 
 export default function Locataires() {
   const [locataires, setLocataires] = useState([])
@@ -8,7 +8,9 @@ export default function Locataires() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const [roleUtilisateur, setRoleUtilisateur] = useState(null)
   const [formData, setFormData] = useState({
+    
     noms_complet: '',
     telephone: '',
     email: '',
@@ -22,6 +24,11 @@ export default function Locataires() {
   })
 
   useEffect(() => {
+    async function detecterRole() {
+      const { role } = await getProfilUtilisateur()
+      setRoleUtilisateur(role)
+    }
+    detecterRole()
     chargerLocataires()
   }, [])
 
@@ -316,7 +323,7 @@ export default function Locataires() {
 
                 {loc.contratActif && (
                   <p className="text-sm bg-emerald-50 text-emerald-800 px-2 py-1 rounded mb-2">
-                    🏢 Loue : <strong>{loc.contratActif.appartement?.nom}</strong> ({loc.contratActif.loyer} USD)
+                    🏢 Loue : <strong>{loc.contratActif.appartement?.nom}</strong>{roleUtilisateur !== 'gerant' && <span> ({loc.contratActif.loyer} USD)</span>}
                   </p>
                 )}
 
