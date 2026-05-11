@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
+import RouteGuard from '../components/RouteGuard'
 import { getRenouvellements, creerRenouvellement, validerRenouvellement, basculerContratsFuturs } from '../lib/supabase'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 
@@ -151,14 +152,15 @@ export default function Renouvellements() {
 
   if (loading) {
     return (
-      <Layout activePage="renouvellements">
+      <RouteGuard rolesAutorises={['bailleur']}>
+        <Layout activePage="...">       
         <div className="flex justify-center items-center h-64">
           <div className="text-emerald-600 text-xl">Chargement...</div>
         </div>
-      </Layout>
+        </Layout>
+      </RouteGuard>
     )
   }
-
   // 📊 Compteurs pour le résumé
   const nombreRenouvellements = contrats.length
   const nbAEnvoyer = contrats.filter(c => c.ui_statut === 'a_envoyer').length

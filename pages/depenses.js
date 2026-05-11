@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import { getSoldeGerant, getPremierGerantId } from '../lib/comptesGerants'
 
 export default function Depenses() {
   const [depenses, setDepenses] = useState([])
@@ -9,6 +10,13 @@ export default function Depenses() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [filterCategorie, setFilterCategorie] = useState('toutes')
+  const [soldeGerant, setSoldeGerant] = useState({
+    totalApprovisionne: 0,
+    totalDepense: 0,
+    soldeNet: 0,
+    nombreApprovisionnements: 0,
+    nombreDepenses: 0
+  })
   const [formData, setFormData] = useState({
     appartement_id: '',
     categorie: 'maintenance',
@@ -25,10 +33,21 @@ export default function Depenses() {
   async function chargerDonnees() {
     setLoading(true)
 
-    const { data: depensesData } = await supabase
+    const { data: depensesRaw } = await supabase
       .from('depenses')
       .select('*')
       .order('date_depense', { ascending: false })
+
+    // 🔒 Charger les IDs des gérants pour exclure leurs dépenses
+    const { data: gerantsData } = await supabase
+      .from('profils')
+      .select('id')
+      .eq('role', 'gerant')
+
+    const idsGerants = (gerantsData || []).map(g => g.id)  
+
+    // 🔒 Exclure les dépenses saisies par un gérant (visibles uniquement via /gerant/mon-solde)
+    const depensesData = (depensesRaw || []).filter(d => !idsGerants.includes(d.enregistre_par))
 
     const { data: apptsData } = await supabase
       .from('appartements')
@@ -42,6 +61,15 @@ export default function Depenses() {
 
     setDepenses(depensesEnrichies)
     setAppartements(apptsData || [])
+
+    // 💰 Solde Compte Gérant via le helper getSoldeGerant()
+    const gerantId = await getPremierGerantId()
+    
+    if (gerantId) {
+      const solde = await getSoldeGerant(gerantId)      
+      setSoldeGerant(solde)
+    } 
+
     setLoading(false)
   }
 
@@ -124,6 +152,28 @@ export default function Depenses() {
     setShowForm(false)
   }
 
+  // 💰 Ouvre le formulaire pré-rempli pour un approvisionnement gérant
+  function openApprovisionnement() {
+    const aujourdhui = new Date()
+    const moisNoms = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ]
+    const moisCourant = moisNoms[aujourdhui.getMonth()]
+    const anneeCourante = aujourdhui.getFullYear()
+
+    setFormData({
+      appartement_id: '',
+      categorie: 'approvisionnement_gerant',
+      montant: '',
+      date_depense: aujourdhui.toISOString().split('T')[0],
+      description: `Approvisionnement ${moisCourant} ${anneeCourante}`,
+      facture_url: ''
+    })
+    setEditingId(null)
+    setShowForm(true)
+  }
+
   // Stats
   const aujourdhui = new Date()
   const debutMois = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1)
@@ -133,8 +183,8 @@ export default function Depenses() {
 
   const totalAnnee = depenses
     .filter(d => new Date(d.date_depense).getFullYear() === aujourdhui.getFullYear())
-    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
-
+    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)  
+   
   const depensesFiltrees = filterCategorie === 'toutes'
     ? depenses
     : depenses.filter(d => d.categorie === filterCategorie)
@@ -146,7 +196,8 @@ export default function Depenses() {
     { value: 'taxes', label: '📋 Taxes / Impôts', color: 'gray' },
     { value: 'assurance', label: '🛡️ Assurance', color: 'blue' },
     { value: 'utilites', label: '💡 Utilités (eau/élec)', color: 'yellow' },
-    { value: 'gestion', label: '👔 Frais de gestion', color: 'emerald' },
+    { value: 'gestion', label: '🏪 Frais de gestion', color: 'emerald' },
+    { value: 'approvisionnement_gerant', label: '💰 Approvisionnement Gérant', color: 'amber' },
     { value: 'autre', label: '📦 Autre', color: 'gray' }
   ]
 
@@ -166,12 +217,23 @@ export default function Depenses() {
 
   return (
     <Layout activePage="depenses">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">📊 Dépenses</h1>
-        <button onClick={() => setShowForm(!showForm)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg shadow-lg transition font-semibold">
-          {showForm ? '❌ Annuler' : '➕ Nouvelle Dépense'}
-        </button>
-      </div>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+          <h1 className="text-3xl font-bold text-gray-800">📊 Dépenses</h1>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={openApprovisionnement}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition"
+            >
+              💰 Approvisionner Gérant
+            </button>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition"
+            >
+              {showForm ? '❌ Annuler' : '➕ Nouvelle Dépense'}
+            </button>
+          </div>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl shadow-lg p-6 border border-red-200">
@@ -188,12 +250,29 @@ export default function Depenses() {
         </div>
       </div>
 
+      {/* 💰 2e ligne — Carte Compte Gérant (architecture compte gérant) */}
+        <div className="grid grid-cols-1 mb-6">
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl shadow-lg p-6 border-2 border-amber-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">💰 Compte Gérant — Total approvisionné</p>
+                <p className="text-3xl font-bold text-amber-700">{soldeGerant.soldeNet.toFixed(0)} USD</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Total versé au compte gérant cette année
+                </p>
+              </div>
+              <div className="text-5xl opacity-60">💰</div>
+            </div>
+          </div>
+        </div>      
+
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
             {editingId ? '✏️ Modifier la Dépense' : '➕ Nouvelle Dépense'}
           </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {formData.categorie !== 'approvisionnement_gerant' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">🏢 Appartement</label>
               <select value={formData.appartement_id} onChange={(e) => setFormData({ ...formData, appartement_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
@@ -201,6 +280,7 @@ export default function Depenses() {
                 {appartements.map((appt) => (<option key={appt.id} value={appt.id}>{appt.nom}</option>))}
               </select>
             </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📂 Catégorie *</label>
@@ -276,19 +356,28 @@ export default function Depenses() {
                 </tr>
               </thead>
               <tbody>
-                {depensesFiltrees.map((d) => (
-                  <tr key={d.id} className="border-b hover:bg-gray-50">
+                {depensesFiltrees.map((d) => {
+                  const estApprovisionnement = d.categorie === 'approvisionnement_gerant'
+                  return (
+                  <tr key={d.id} className={`border-b hover:bg-gray-50 ${estApprovisionnement ? 'bg-amber-50' : ''}`}>
                     <td className="py-3 px-2">{new Date(d.date_depense).toLocaleDateString('fr-FR')}</td>
                     <td className="py-3 px-2">{getCategorieLabel(d.categorie)}</td>
                     <td className="py-3 px-2">{d.appartement?.nom || '—'}</td>
-                    <td className="py-3 px-2 text-gray-600 max-w-xs truncate">{d.description || '—'}</td>
-                    <td className="py-3 px-2 text-right font-bold text-red-700">-{parseFloat(d.montant).toFixed(0)} USD</td>
+                    <td className="py-3 px-2 text-gray-600 max-w-xs truncate">
+                      {d.description || '—'}
+                      {estApprovisionnement && (
+                        <span className="ml-2 inline-block px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-semibold rounded-full">
+                          → Gérant
+                        </span>
+                      )}
+                    </td>
+                    <td className={`py-3 px-2 text-right font-bold ${estApprovisionnement ? 'text-amber-700' : 'text-red-700'}`}>-{parseFloat(d.montant).toFixed(0)} USD</td>
                     <td className="py-3 px-2 text-right">
                       <button onClick={() => handleEdit(d)} className="text-blue-600 hover:underline text-sm mr-2">✏️</button>
                       <button onClick={() => handleDelete(d.id)} className="text-red-600 hover:underline text-sm">🗑️</button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

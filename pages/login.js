@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { signIn, getSession } from '../lib/supabase'
+import { signIn, getSession, getProfilUtilisateur } from '../lib/supabase'
+
+// Destination après login selon le rôle
+function getDestinationSelonRole(profil, role) {
+  if (!profil) return '/acces-refuse'
+  if (profil.actif === false) return '/acces-refuse'
+  if (role === 'bailleur') return '/'
+  if (role === 'gerant') return '/gerant/dashboard'
+  return '/acces-refuse' // locataire ou rôle inconnu
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,10 +24,11 @@ export default function LoginPage() {
     async function verif() {
       const { session } = await getSession()
       if (session) {
-        router.push('/')
-      } else {
-        setVerifSession(false)
-      }
+  const { profil, role } = await getProfilUtilisateur()
+  router.replace(getDestinationSelonRole(profil, role))
+} else {
+  setVerifSession(false)
+}
     }
     verif()
   }, [router])
@@ -41,8 +51,9 @@ export default function LoginPage() {
     }
 
     if (data?.session) {
-      router.push('/')
-    }
+  const { profil, role } = await getProfilUtilisateur()
+  router.replace(getDestinationSelonRole(profil, role))
+}
   }
 
   // Pendant la vérif initiale → écran neutre
