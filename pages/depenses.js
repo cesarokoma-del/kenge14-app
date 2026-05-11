@@ -157,7 +157,8 @@ export default function Depenses() {
     { value: 'taxes', label: '📋 Taxes / Impôts', color: 'gray' },
     { value: 'assurance', label: '🛡️ Assurance', color: 'blue' },
     { value: 'utilites', label: '💡 Utilités (eau/élec)', color: 'yellow' },
-    { value: 'gestion', label: '👔 Frais de gestion', color: 'emerald' },
+    { value: 'gestion', label: '🏪 Frais de gestion', color: 'emerald' },
+    { value: 'approvisionnement_gerant', label: '💰 Approvisionnement Gérant', color: 'amber' },
     { value: 'autre', label: '📦 Autre', color: 'gray' }
   ]
 
