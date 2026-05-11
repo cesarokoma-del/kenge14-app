@@ -168,6 +168,17 @@ export default function Depenses() {
     .filter(d => new Date(d.date_depense).getFullYear() === aujourdhui.getFullYear())
     .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
 
+    // 💰 Solde Compte Gérant = Σ approvisionnements − Σ dépenses gérant
+  // Note: `depenses` est déjà filtré (sans les dépenses gérant), donc on ne voit que les approvisionnements ici
+  const totalApprovisionnements = depenses
+    .filter(d => d.categorie === 'approvisionnement_gerant')
+    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
+
+  // Les dépenses gérant sont dans `depensesRaw` (avant filtre), il faut les refetch
+  // Pour C1.3 on calcule en se basant sur les seuls approvisionnements visibles côté bailleur
+  // En C2/C3 on fera un vrai helper `getSoldeGerant()` qui requête les 2 séries
+  const soldeGerantEstime = totalApprovisionnements
+
   const depensesFiltrees = filterCategorie === 'toutes'
     ? depenses
     : depenses.filter(d => d.categorie === filterCategorie)
@@ -232,6 +243,22 @@ export default function Depenses() {
           <p className="text-3xl font-bold text-purple-700">{depenses.length}</p>
         </div>
       </div>
+
+      {/* 💰 2e ligne — Carte Compte Gérant (architecture compte gérant) */}
+        <div className="grid grid-cols-1 mb-6">
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl shadow-lg p-6 border-2 border-amber-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">💰 Compte Gérant — Total approvisionné</p>
+                <p className="text-3xl font-bold text-amber-700">{soldeGerantEstime.toFixed(0)} USD</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Total versé au compte gérant cette année
+                </p>
+              </div>
+              <div className="text-5xl opacity-60">💰</div>
+            </div>
+          </div>
+        </div>      
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 mb-6">
@@ -323,19 +350,28 @@ export default function Depenses() {
                 </tr>
               </thead>
               <tbody>
-                {depensesFiltrees.map((d) => (
-                  <tr key={d.id} className="border-b hover:bg-gray-50">
+                {depensesFiltrees.map((d) => {
+                  const estApprovisionnement = d.categorie === 'approvisionnement_gerant'
+                  return (
+                  <tr key={d.id} className={`border-b hover:bg-gray-50 ${estApprovisionnement ? 'bg-amber-50' : ''}`}>
                     <td className="py-3 px-2">{new Date(d.date_depense).toLocaleDateString('fr-FR')}</td>
                     <td className="py-3 px-2">{getCategorieLabel(d.categorie)}</td>
                     <td className="py-3 px-2">{d.appartement?.nom || '—'}</td>
-                    <td className="py-3 px-2 text-gray-600 max-w-xs truncate">{d.description || '—'}</td>
-                    <td className="py-3 px-2 text-right font-bold text-red-700">-{parseFloat(d.montant).toFixed(0)} USD</td>
+                    <td className="py-3 px-2 text-gray-600 max-w-xs truncate">
+                      {d.description || '—'}
+                      {estApprovisionnement && (
+                        <span className="ml-2 inline-block px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-semibold rounded-full">
+                          → Gérant
+                        </span>
+                      )}
+                    </td>
+                    <td className={`py-3 px-2 text-right font-bold ${estApprovisionnement ? 'text-amber-700' : 'text-red-700'}`}>-{parseFloat(d.montant).toFixed(0)} USD</td>
                     <td className="py-3 px-2 text-right">
                       <button onClick={() => handleEdit(d)} className="text-blue-600 hover:underline text-sm mr-2">✏️</button>
                       <button onClick={() => handleDelete(d.id)} className="text-red-600 hover:underline text-sm">🗑️</button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
