@@ -36,7 +36,7 @@ export default function Depenses() {
       .select('id')
       .eq('role', 'gerant')
 
-    const idsGerants = (gerantsData || []).map(g => g.id)
+    const idsGerants = (gerantsData || []).map(g => g.id)  
 
     // 🔒 Exclure les dépenses saisies par un gérant (visibles uniquement via /gerant/mon-solde)
     const depensesData = (depensesRaw || []).filter(d => !idsGerants.includes(d.enregistre_par))
