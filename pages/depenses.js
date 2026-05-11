@@ -135,6 +135,28 @@ export default function Depenses() {
     setShowForm(false)
   }
 
+  // 💰 Ouvre le formulaire pré-rempli pour un approvisionnement gérant
+  function openApprovisionnement() {
+    const aujourdhui = new Date()
+    const moisNoms = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ]
+    const moisCourant = moisNoms[aujourdhui.getMonth()]
+    const anneeCourante = aujourdhui.getFullYear()
+
+    setFormData({
+      appartement_id: '',
+      categorie: 'approvisionnement_gerant',
+      montant: '',
+      date_depense: aujourdhui.toISOString().split('T')[0],
+      description: `Approvisionnement ${moisCourant} ${anneeCourante}`,
+      facture_url: ''
+    })
+    setEditingId(null)
+    setShowForm(true)
+  }
+
   // Stats
   const aujourdhui = new Date()
   const debutMois = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1)
@@ -178,12 +200,23 @@ export default function Depenses() {
 
   return (
     <Layout activePage="depenses">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">📊 Dépenses</h1>
-        <button onClick={() => setShowForm(!showForm)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg shadow-lg transition font-semibold">
-          {showForm ? '❌ Annuler' : '➕ Nouvelle Dépense'}
-        </button>
-      </div>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+          <h1 className="text-3xl font-bold text-gray-800">📊 Dépenses</h1>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={openApprovisionnement}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition"
+            >
+              💰 Approvisionner Gérant
+            </button>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition"
+            >
+              {showForm ? '❌ Annuler' : '➕ Nouvelle Dépense'}
+            </button>
+          </div>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl shadow-lg p-6 border border-red-200">
@@ -206,6 +239,7 @@ export default function Depenses() {
             {editingId ? '✏️ Modifier la Dépense' : '➕ Nouvelle Dépense'}
           </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {formData.categorie !== 'approvisionnement_gerant' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">🏢 Appartement</label>
               <select value={formData.appartement_id} onChange={(e) => setFormData({ ...formData, appartement_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
@@ -213,6 +247,7 @@ export default function Depenses() {
                 {appartements.map((appt) => (<option key={appt.id} value={appt.id}>{appt.nom}</option>))}
               </select>
             </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📂 Catégorie *</label>
