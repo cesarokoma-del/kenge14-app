@@ -25,10 +25,21 @@ export default function Depenses() {
   async function chargerDonnees() {
     setLoading(true)
 
-    const { data: depensesData } = await supabase
+    const { data: depensesRaw } = await supabase
       .from('depenses')
       .select('*')
       .order('date_depense', { ascending: false })
+
+    // 🔒 Charger les IDs des gérants pour exclure leurs dépenses
+    const { data: gerantsData } = await supabase
+      .from('profils')
+      .select('id')
+      .eq('role', 'gerant')
+
+    const idsGerants = (gerantsData || []).map(g => g.id)
+
+    // 🔒 Exclure les dépenses saisies par un gérant (visibles uniquement via /gerant/mon-solde)
+    const depensesData = (depensesRaw || []).filter(d => !idsGerants.includes(d.enregistre_par))
 
     const { data: apptsData } = await supabase
       .from('appartements')

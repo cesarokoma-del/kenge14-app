@@ -45,7 +45,7 @@ export default function LayoutGerant({ children, activePage }) {
     { id: 'dashboard',     label: 'Mon Espace',      href: '/gerant/dashboard',     icone: '🏠' },
     { id: 'locataires',    label: 'Locataires',      href: '/locataires',           icone: '👥' },
     { id: 'demandes',      label: 'Demandes',        href: '/demandes',             icone: '📨' },
-    { id: 'depenses',      label: 'Dépenses',        href: '/depenses',             icone: '📝' },
+    { id: 'depenses',     label: 'Mes Dépenses', href: '/gerant/depense', icone: '📝' },
     { id: 'paiement-cash', label: 'Paiement Cash',   href: '/gerant/paiement-cash', icone: '💵' },
   ]
 
