@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
 import { supabase } from '../lib/supabase'
+import {
+  calculerDecompteComplet,
+  formatMoisConcerne,
+} from '../lib/decompteFinContrat'
+import { genererDecompteFinPDF } from '../lib/genererDecompteFinPDF'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
-import { signerContratCommeBailleur, creerLienSignatureBail } from '../lib/supabase'
-
+import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte } from '../lib/supabase'
+import SignatureCanvas from '../components/SignatureCanvas'
 export default function Contrats() {
   const router = useRouter()
   const [contrats, setContrats] = useState([])
@@ -18,10 +23,47 @@ export default function Contrats() {
   const [filterStatut, setFilterStatut] = useState('actif')
   const [showTerminerModal, setShowTerminerModal] = useState(null)
   const [terminerData, setTerminerData] = useState({
-    date_fin_effective: new Date().toISOString().split('T')[0],
-    raison_fin: 'fin_normale',
-    notes_fin: ''
-  })
+  date_fin_effective: new Date().toISOString().split('T')[0],
+  raison_fin: 'fin_normale',
+  degats_constates: 0,
+  notes_fin: '',
+})
+
+// État pour le décompte calculé en live
+const [decompteCalcule, setDecompteCalcule] = useState(null)
+const [chargementDecompte, setChargementDecompte] = useState(false)
+
+// Workflow modale Terminer : 'formulaire' → 'signature' → 'succes'
+  const [etapeTerminer, setEtapeTerminer] = useState('formulaire')
+  const [lienGenere, setLienGenere] = useState(null)
+  const [contratTermineId, setContratTermineId] = useState(null)
+  const signatureBailleurRef = useRef(null)
+  const [signatureBailleurOk, setSignatureBailleurOk] = useState(false)
+
+// Recalcule le décompte automatiquement quand date/dégâts/contrat changent
+useEffect(() => {
+  if (!showTerminerModal) {
+    setDecompteCalcule(null)
+    return
+  }
+
+  const timer = setTimeout(async () => {
+    setChargementDecompte(true)
+    const resultat = await calculerDecompteComplet(
+      showTerminerModal,
+      terminerData.date_fin_effective,
+      terminerData.degats_constates
+    )
+    setDecompteCalcule(resultat)
+    setChargementDecompte(false)
+  }, 300) // Debounce 300ms
+
+  return () => clearTimeout(timer)
+}, [
+  showTerminerModal,
+  terminerData.date_fin_effective,
+  terminerData.degats_constates,
+])
   const [formData, setFormData] = useState({
     appartement_id: '',
     locataire_id: '',
@@ -149,33 +191,90 @@ export default function Contrats() {
 
   function ouvrirTerminerModal(contrat) {
     setShowTerminerModal(contrat)
+    setEtapeTerminer('formulaire')
+    setLienGenere(null)
+    setContratTermineId(null)
+    setSignatureBailleurOk(false)
     setTerminerData({
       date_fin_effective: new Date().toISOString().split('T')[0],
       raison_fin: 'fin_normale',
+      degats_constates: 0,
       notes_fin: ''
     })
   }
 
+  function fermerModaleTerminer() {
+    setShowTerminerModal(null)
+    setEtapeTerminer('formulaire')
+    setLienGenere(null)
+    setContratTermineId(null)
+    setSignatureBailleurOk(false)
+    setTerminerData({
+      date_fin_effective: new Date().toISOString().split('T')[0],
+      raison_fin: 'fin_normale',
+      degats_constates: 0,
+      notes_fin: '',
+    })
+  }
+
+  function passerEtapeSignature() {
+    if (!decompteCalcule || decompteCalcule.erreur) {
+      alert('Erreur de calcul du décompte. Veuillez vérifier la date de fin.')
+      return
+    }
+    setEtapeTerminer('signature')
+  }
+
   async function confirmerTerminer() {
     if (!showTerminerModal) return
+    if (!decompteCalcule || decompteCalcule.erreur) {
+      alert('Erreur de calcul du décompte.')
+      return
+    }
 
-    const { error } = await supabase
+    // Récupérer la signature du bailleur
+    const signatureBailleurPNG = signatureBailleurRef.current?.getSignatureData()
+    if (!signatureBailleurPNG) {
+      alert('Veuillez signer le décompte avant de continuer.')
+      return
+    }
+
+    // 1. UPDATE des champs métier du contrat
+    const { error: errorUpdate } = await supabase
       .from('contrats')
       .update({
         statut: terminerData.raison_fin === 'resiliation' ? 'resilie' : 'termine',
         date_fin_effective: terminerData.date_fin_effective,
-        raison_fin: terminerData.raison_fin
+        raison_fin: terminerData.raison_fin,
+        notes_fin: terminerData.notes_fin || null,
+        degats_constates: parseFloat(terminerData.degats_constates) || 0,
+        loyers_impayes_calcule: decompteCalcule.loyersImpayes.totalImpaye,
+        surplus_credit_calcule: decompteCalcule.loyersImpayes.surplus,
+        reliquat_garantie: decompteCalcule.reliquat.reliquat,
       })
       .eq('id', showTerminerModal.id)
 
-    if (error) {
-      alert('Erreur: ' + error.message)
+    if (errorUpdate) {
+      alert('Erreur lors de la clôture du contrat: ' + errorUpdate.message)
       return
     }
 
-    setShowTerminerModal(null)
+    // 2. Enregistrer la signature bailleur + générer le lien public
+    const { error: errorSign, lien } = await creerLienSignatureDecompte(
+      showTerminerModal.id,
+      signatureBailleurPNG
+    )
+
+    if (errorSign) {
+      alert('Erreur lors de la génération du lien: ' + errorSign.message)
+      return
+    }
+
+    // 3. Passer à l'écran de succès
+    setLienGenere(lien)
+    setContratTermineId(showTerminerModal.id)
+    setEtapeTerminer('succes')
     chargerDonnees()
-    alert('✅ Contrat terminé. L\'appartement est maintenant disponible.')
   }
 
   async function handleDelete(id) {
@@ -380,33 +479,351 @@ export default function Contrats() {
 
       {showTerminerModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
-            <h3 className="text-2xl font-bold mb-4">🔚 Terminer le contrat</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>{showTerminerModal.locataire?.noms_complet}</strong> - {showTerminerModal.appartement?.nom}
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin effective *</label>
-                <input type="date" required value={terminerData.date_fin_effective} onChange={(e) => setTerminerData({ ...terminerData, date_fin_effective: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Raison *</label>
-                <select value={terminerData.raison_fin} onChange={(e) => setTerminerData({ ...terminerData, raison_fin: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                  <option value="fin_normale">Fin normale (date prévue atteinte)</option>
-                  <option value="depart_anticipe">Départ anticipé du locataire</option>
-                  <option value="resiliation">Résiliation par le bailleur</option>
-                  <option value="impayes">Impayés</option>
-                  <option value="vente">Vente du bien</option>
-                  <option value="autre">Autre</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={confirmerTerminer} className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold">✅ Confirmer</button>
-              <button onClick={() => setShowTerminerModal(null)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold">Annuler</button>
-            </div>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+  {etapeTerminer === 'formulaire' ? (
+    <>
+  <h3 className="text-2xl font-bold mb-2">🔚 Terminer le contrat</h3>
+  <p className="text-sm text-gray-600 mb-4">
+    {showTerminerModal.locataire?.noms_complet || '—'} — {showTerminerModal.appartement?.nom || '—'}
+  </p>
+
+  {/* Date de fin effective */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Date de fin effective <span className="text-red-600">*</span>
+    </label>
+    <input
+      type="date"
+      required
+      value={terminerData.date_fin_effective}
+      onChange={(e) => setTerminerData({ ...terminerData, date_fin_effective: e.target.value })}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+    />
+    <p className="text-xs text-gray-500 mt-1">
+      Le jour de fin n'est pas compté dans les loyers (locataire libère le matin).
+    </p>
+  </div>
+
+  {/* Raison */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Raison <span className="text-red-600">*</span>
+    </label>
+    <select
+      value={terminerData.raison_fin}
+      onChange={(e) => setTerminerData({ ...terminerData, raison_fin: e.target.value })}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+    >
+      <option value="fin_normale">Fin normale</option>
+      <option value="resiliation">Résiliation par le bailleur</option>
+      <option value="depart_locataire">Départ du locataire</option>
+      <option value="autre">Autre</option>
+    </select>
+  </div>
+
+  {/* Dégâts constatés */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      💥 Dégâts constatés (USD)
+    </label>
+    <input
+      type="number"
+      step="0.01"
+      min="0"
+      value={terminerData.degats_constates}
+      onChange={(e) => setTerminerData({ ...terminerData, degats_constates: e.target.value })}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+      placeholder="0.00"
+    />
+    <p className="text-xs text-gray-500 mt-1">
+      Montant à déduire de la garantie (état des lieux de sortie).
+    </p>
+  </div>
+
+  {/* Notes libres */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      📝 Notes (optionnel)
+    </label>
+    <textarea
+      rows="2"
+      value={terminerData.notes_fin}
+      onChange={(e) => setTerminerData({ ...terminerData, notes_fin: e.target.value })}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+      placeholder="Observations sur la fin de contrat..."
+    />
+  </div>
+
+  {/* ─── Bloc Décompte en live ─── */}
+  <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl">
+    <h4 className="text-base font-bold text-gray-800 mb-3">💰 Décompte de garantie</h4>
+
+    {chargementDecompte ? (
+      <p className="text-sm text-gray-500 italic">Calcul en cours...</p>
+    ) : decompteCalcule?.erreur ? (
+      <p className="text-sm text-red-600">Erreur: {decompteCalcule.erreur}</p>
+    ) : decompteCalcule ? (
+      <>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Garantie versée</span>
+            <span className="font-semibold text-gray-800">
+              +{(parseFloat(showTerminerModal.garantie) || 0).toFixed(2)} USD
+            </span>
           </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">
+              Loyers impayés{' '}
+              {decompteCalcule.loyersImpayes.prorataJours > 0 && (
+                <span className="text-xs text-gray-400">
+                  (dont prorata {decompteCalcule.loyersImpayes.prorataJours}j)
+                </span>
+              )}
+            </span>
+            <span className="font-semibold text-red-700">
+              -{decompteCalcule.loyersImpayes.totalImpaye.toFixed(2)} USD
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Dégâts constatés</span>
+            <span className="font-semibold text-red-700">
+              -{(parseFloat(terminerData.degats_constates) || 0).toFixed(2)} USD
+            </span>
+          </div>
+          {decompteCalcule.loyersImpayes.surplus > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Surplus payé d'avance</span>
+              <span className="font-semibold text-green-700">
+                +{decompteCalcule.loyersImpayes.surplus.toFixed(2)} USD
+              </span>
+            </div>
+          )}
+        </div>
+
+        <hr className="my-3 border-blue-300" />
+
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-bold text-gray-800">
+            {decompteCalcule.reliquat.sens === 'restituer' && '💰 À restituer au locataire'}
+            {decompteCalcule.reliquat.sens === 'recouvrer' && '⚠️ À recouvrer du locataire'}
+            {decompteCalcule.reliquat.sens === 'neutre' && '⚖️ Balance neutre'}
+          </span>
+          <span
+            className={`text-2xl font-bold ${
+              decompteCalcule.reliquat.sens === 'restituer'
+                ? 'text-green-700'
+                : decompteCalcule.reliquat.sens === 'recouvrer'
+                ? 'text-red-700'
+                : 'text-gray-700'
+            }`}
+          >
+            {decompteCalcule.reliquat.montantAbsolu.toFixed(2)} USD
+          </span>
+        </div>
+
+        {/* Détail des mois impayés (collapsible) */}
+        {decompteCalcule.loyersImpayes.moisDus.some((m) => m.statut !== 'paye') && (
+          <details className="mt-3">
+            <summary className="text-xs text-blue-700 cursor-pointer hover:underline">
+              Voir le détail des loyers
+            </summary>
+            <div className="mt-2 space-y-1 text-xs">
+              {decompteCalcule.loyersImpayes.moisDus.map((m) => (
+                <div key={m.absolu} className="flex justify-between">
+                  <span className="text-gray-700">{m.libelle}</span>
+                  <span
+                    className={
+                      m.statut === 'paye'
+                        ? 'text-green-700'
+                        : m.statut === 'partiel'
+                        ? 'text-orange-700'
+                        : 'text-red-700'
+                    }
+                  >
+                    {m.montantPaye.toFixed(2)} / {m.montantDu.toFixed(2)} USD
+                    {m.statut === 'paye' && ' ✓'}
+                    {m.statut === 'partiel' && ' ⚠'}
+                    {m.statut === 'impaye' && ' ✗'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </>
+    ) : (
+      <p className="text-sm text-gray-500 italic">Saisis une date de fin pour voir le décompte.</p>
+    )}
+  </div>
+
+  {/* Boutons étape formulaire */}
+  <div className="flex gap-3 mt-6">
+    <button
+      onClick={passerEtapeSignature}
+      disabled={chargementDecompte || !decompteCalcule || decompteCalcule?.erreur}
+      className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold"
+    >
+      Continuer →
+    </button>
+    <button
+      onClick={fermerModaleTerminer}
+      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold"
+    >
+      Annuler
+    </button>
+  </div>
+
+    </>
+  ) : etapeTerminer === 'signature' ? (
+    <>
+      <h3 className="text-2xl font-bold mb-2">✍️ Signature du bailleur</h3>
+      <p className="text-sm text-gray-600 mb-4">
+        {showTerminerModal.locataire?.noms_complet || '—'} — {showTerminerModal.appartement?.nom || '—'}
+      </p>
+
+      <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <p className="text-sm text-amber-900">
+          🖊️ Signez dans la zone ci-dessous. Une fois validé, un lien sera généré pour
+          que le locataire puisse signer à son tour via WhatsApp.
+        </p>
+      </div>
+
+      {decompteCalcule && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Reliquat de garantie</span>
+            <span
+              className={`font-bold ${
+                decompteCalcule.reliquat.sens === 'restituer'
+                  ? 'text-green-700'
+                  : decompteCalcule.reliquat.sens === 'recouvrer'
+                  ? 'text-red-700'
+                  : 'text-gray-700'
+              }`}
+            >
+              {decompteCalcule.reliquat.montantAbsolu.toFixed(2)} USD{' '}
+              {decompteCalcule.reliquat.sens === 'restituer' && '(à restituer)'}
+              {decompteCalcule.reliquat.sens === 'recouvrer' && '(à recouvrer)'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Votre signature
+        </label>
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-1 bg-white">
+          <SignatureCanvas
+            ref={signatureBailleurRef}
+            onSignatureChange={(hasSig) => setSignatureBailleurOk(hasSig)}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => setEtapeTerminer('formulaire')}
+          className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold"
+        >
+          ← Retour
+        </button>
+        <button
+          onClick={confirmerTerminer}
+          disabled={!signatureBailleurOk}
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold"
+        >
+          ✅ Confirmer et générer le lien
+        </button>
+      </div>
+    </>
+  ) : (
+    <>
+      <h3 className="text-2xl font-bold mb-2 text-green-700">
+        ✅ Décompte signé par vous !
+      </h3>
+      <p className="text-sm text-gray-600 mb-6">
+        Envoyez maintenant le lien au locataire pour qu'il signe à son tour.
+      </p>
+
+      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+        <label className="block text-xs font-medium text-gray-500 mb-2">
+          🔗 LIEN DE SIGNATURE DU LOCATAIRE
+        </label>
+        <div className="bg-white border border-gray-300 rounded-lg px-3 py-2 font-mono text-xs break-all">
+          {lienGenere}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(lienGenere)
+            alert('✅ Lien copié dans le presse-papier')
+          }}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-3 rounded-lg font-semibold border border-gray-300"
+        >
+          📋 Copier le lien
+        </button>
+
+        <button
+          onClick={() => {
+            const telLocataire = showTerminerModal.locataire?.telephone || ''
+            const telFormate = telLocataire.replace(/[^\d+]/g, '').replace(/^\+/, '')
+            const message = encodeURIComponent(
+              `Bonjour ${showTerminerModal.locataire?.noms_complet || ''},\n\n` +
+              `Voici votre décompte de fin de contrat à signer :\n${lienGenere}\n\n` +
+              `Merci de bien vouloir le consulter et le signer.\n\n` +
+              `Cordialement, KENGE 14`
+            )
+            const url = telFormate
+              ? `https://wa.me/${telFormate}?text=${message}`
+              : `https://wa.me/?text=${message}`
+            window.open(url, '_blank')
+          }}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold"
+        >
+          💬 Ouvrir WhatsApp
+        </button>
+      </div>
+
+      <button
+        onClick={async () => {
+          const { data: contratAJour } = await supabase
+            .from('contrats')
+            .select('*, locataire:locataires(*), appartement:appartements(*)')
+            .eq('id', contratTermineId)
+            .single()
+          const { data: paramsBailleur } = await supabase
+            .from('parametres')
+            .select('*')
+            .limit(1)
+            .single()
+          if (contratAJour && decompteCalcule) {
+            const doc = genererDecompteFinPDF({
+              contrat: contratAJour,
+              decompte: decompteCalcule,
+              parametres: paramsBailleur || {},
+            })
+            const nomLocataire = (contratAJour.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
+            const dateFin = contratAJour.date_fin_effective || new Date().toISOString().split('T')[0]
+            doc.save(`Decompte-Fin-${nomLocataire}-${dateFin}-BROUILLON.pdf`)
+          }
+        }}
+        className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-semibold text-sm border border-blue-200 mb-4"
+      >
+        📥 Télécharger PDF brouillon (sans signature locataire)
+      </button>
+
+      <button
+        onClick={fermerModaleTerminer}
+        className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold"
+      >
+        Fermer
+      </button>
+    </>
+  )}
+</div>
         </div>
       )}
 
