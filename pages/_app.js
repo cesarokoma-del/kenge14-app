@@ -9,6 +9,7 @@ const ROUTES_PUBLIQUES = [
   '/locataire',       // /locataire/[token]
   '/signature',       // /signature/[id]
   '/signature-bail',  // /signature-bail/[lienId]
+  '/signature-decompte', // /signature-decompte/[lienId]
   '/demande',         // /demande/[id]
 ]
 
