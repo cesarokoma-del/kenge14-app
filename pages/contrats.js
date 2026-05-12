@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
@@ -10,8 +10,8 @@ import {
 import { genererDecompteFinPDF } from '../lib/genererDecompteFinPDF'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
-import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte } from '../lib/supabase'
-import SignatureCanvas from '../components/SignatureCanvas'
+import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur } from '../lib/supabase'
+
 export default function Contrats() {
   const router = useRouter()
   const [contrats, setContrats] = useState([])
@@ -37,8 +37,18 @@ const [chargementDecompte, setChargementDecompte] = useState(false)
   const [etapeTerminer, setEtapeTerminer] = useState('formulaire')
   const [lienGenere, setLienGenere] = useState(null)
   const [contratTermineId, setContratTermineId] = useState(null)
-  const signatureBailleurRef = useRef(null)
-  const [signatureBailleurOk, setSignatureBailleurOk] = useState(false)
+  
+  const [signatureBailleurEnregistree, setSignatureBailleurEnregistree] = useState(null)
+  const [confirmationSignature, setConfirmationSignature] = useState(false)
+
+  // Charger la signature bailleur depuis les paramètres (une seule fois au montage)
+  useEffect(() => {
+    const chargerSignatureBailleur = async () => {
+      const { signature } = await getSignatureBailleur()
+      setSignatureBailleurEnregistree(signature)
+    }
+    chargerSignatureBailleur()
+  }, [])
 
 // Recalcule le décompte automatiquement quand date/dégâts/contrat changent
 useEffect(() => {
@@ -194,7 +204,7 @@ useEffect(() => {
     setEtapeTerminer('formulaire')
     setLienGenere(null)
     setContratTermineId(null)
-    setSignatureBailleurOk(false)
+    setConfirmationSignature(false)
     setTerminerData({
       date_fin_effective: new Date().toISOString().split('T')[0],
       raison_fin: 'fin_normale',
@@ -208,7 +218,7 @@ useEffect(() => {
     setEtapeTerminer('formulaire')
     setLienGenere(null)
     setContratTermineId(null)
-    setSignatureBailleurOk(false)
+    setConfirmationSignature(false)
     setTerminerData({
       date_fin_effective: new Date().toISOString().split('T')[0],
       raison_fin: 'fin_normale',
@@ -232,12 +242,12 @@ useEffect(() => {
       return
     }
 
-    // Récupérer la signature du bailleur
-    const signatureBailleurPNG = signatureBailleurRef.current?.getSignatureData()
-    if (!signatureBailleurPNG) {
-      alert('Veuillez signer le décompte avant de continuer.')
+    // Utiliser la signature bailleur enregistrée dans les paramètres
+    if (!signatureBailleurEnregistree) {
+      alert('Aucune signature enregistrée. Veuillez la configurer dans Paramètres.')
       return
     }
+    const signatureBailleurPNG = signatureBailleurEnregistree
 
     // 1. UPDATE des champs métier du contrat
     const { error: errorUpdate } = await supabase
@@ -710,16 +720,43 @@ useEffect(() => {
       )}
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Votre signature
-        </label>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-1 bg-white">
-          <SignatureCanvas
-            ref={signatureBailleurRef}
-            onSignatureChange={(hasSig) => setSignatureBailleurOk(hasSig)}
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Votre signature (enregistrée dans vos paramètres)
+          </label>
+          {signatureBailleurEnregistree ? (
+            <div className="border-2 border-gray-200 rounded-lg p-4 bg-white flex items-center justify-center">
+              <img
+                src={signatureBailleurEnregistree}
+                alt="Votre signature"
+                style={{ maxWidth: 300, maxHeight: 120 }}
+              />
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-amber-300 rounded-lg p-4 bg-amber-50">
+              <p className="text-sm text-amber-900 mb-2">
+                ⚠️ Aucune signature enregistrée dans vos paramètres.
+              </p>
+              <button
+                onClick={() => router.push('/parametres')}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm"
+              >
+                ⚙️ Configurer ma signature
+              </button>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 mt-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={confirmationSignature}
+              onChange={(e) => setConfirmationSignature(e.target.checked)}
+              disabled={!signatureBailleurEnregistree}
+            />
+            <span className="text-sm text-gray-700">
+              Je confirme apposer ma signature sur ce décompte de fin de contrat
+            </span>
+          </label>
         </div>
-      </div>
 
       <div className="flex gap-3">
         <button
@@ -730,7 +767,7 @@ useEffect(() => {
         </button>
         <button
           onClick={confirmerTerminer}
-          disabled={!signatureBailleurOk}
+          disabled={!confirmationSignature}
           className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold"
         >
           ✅ Confirmer et générer le lien
