@@ -335,6 +335,42 @@ useEffect(() => {
     doc.save(nomFichier)
   }
 
+  async function telechargerDecompteSigne(contrat) {
+    if (contrat.statut !== 'termine') {
+      alert('Ce contrat n\'a pas encore été terminé.')
+      return
+    }
+    if (!contrat.statut_signature_decompte) {
+      alert('Aucun décompte de fin n\'a été initié pour ce contrat.')
+      return
+    }
+
+    // Charger les paramètres bailleur
+    const { data: paramsBailleur } = await supabase
+      .from('parametres')
+      .select('*')
+      .limit(1)
+      .single()
+
+    // Recalculer le décompte (signature : (contrat, dateFinISO, degats))
+    const dateFinISO = contrat.date_fin_effective || new Date().toISOString().split('T')[0]
+    const degats = parseFloat(contrat.degats_constates) || 0
+    const decompte = await calculerDecompteComplet(contrat, dateFinISO, degats)
+
+    const doc = genererDecompteFinPDF({
+      contrat,
+      decompte,
+      parametres: paramsBailleur || {},
+      signatureBailleur: contrat.signature_decompte_bailleur || null,
+      signatureLocataire: contrat.signature_decompte_locataire || null,
+    })
+
+    const nomLocataire = (contrat.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
+    const dateFin = contrat.date_fin_effective || new Date().toISOString().split('T')[0]
+    const suffix = contrat.statut_signature_decompte === 'signe_complet' ? 'SIGNE' : 'EN-ATTENTE'
+    doc.save(`Decompte-Fin-${nomLocataire}-${dateFin}-${suffix}.pdf`)
+  }
+
   function telechargerContratInitialPDF(contrat) {
     const doc = genererContratInitialPDF(contrat)
     const nomFichier = `Contrat-Bail-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Vierge'}.pdf`
@@ -841,10 +877,13 @@ useEffect(() => {
               contrat: contratAJour,
               decompte: decompteCalcule,
               parametres: paramsBailleur || {},
+              signatureBailleur: contratAJour.signature_decompte_bailleur || null,
+              signatureLocataire: contratAJour.signature_decompte_locataire || null,
             })
             const nomLocataire = (contratAJour.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
             const dateFin = contratAJour.date_fin_effective || new Date().toISOString().split('T')[0]
-            doc.save(`Decompte-Fin-${nomLocataire}-${dateFin}-BROUILLON.pdf`)
+            const suffix = contratAJour.statut_signature_decompte === 'signe_complet' ? 'SIGNE' : 'BROUILLON'
+            doc.save(`Decompte-Fin-${nomLocataire}-${dateFin}-${suffix}.pdf`)
           }
         }}
         className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-semibold text-sm border border-blue-200 mb-4"
@@ -964,9 +1003,17 @@ useEffect(() => {
                       <h3 className="text-lg font-bold text-gray-800">{contrat.locataire?.noms_complet || 'Locataire inconnu'}</h3>
                       <p className="text-sm text-gray-600">🏢 {contrat.appartement?.nom || 'Appartement inconnu'}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut === 'actif' ? 'bg-emerald-100 text-emerald-800' : contrat.statut === 'termine' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
-                      {contrat.statut === 'actif' ? '✅ Actif' : contrat.statut === 'termine' ? '📋 Terminé' : '⛔ Résilié'}
-                    </span>
+                    
+                    <div className="flex flex-col gap-1 items-end">
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut === 'actif' ? 'bg-emerald-100 text-emerald-800' : contrat.statut === 'termine' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
+            {contrat.statut === 'actif' ? '✅ Actif' : contrat.statut === 'termine' ? '📋 Terminé' : '⛔ Résilié'}
+          </span>
+          {contrat.statut === 'termine' && contrat.statut_signature_decompte && (
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut_signature_decompte === 'signe_complet' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+              {contrat.statut_signature_decompte === 'signe_complet' ? '✍️ Décompte signé' : '⏳ En attente locataire'}
+            </span>
+          )}
+        </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm mt-3 border-t pt-3">
@@ -1009,7 +1056,17 @@ useEffect(() => {
                     >
                       📜
                     </button>
-                    {contrat.statut === 'actif' && (
+
+                    {contrat.statut === 'termine' && contrat.statut_signature_decompte && (
+                      <button
+                      onClick={() => telechargerDecompteSigne(contrat)}
+                      title={contrat.statut_signature_decompte === 'signe_complet' ? 'Télécharger le décompte signé' : 'Télécharger le décompte (en attente locataire)'}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${contrat.statut_signature_decompte === 'signe_complet' ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800' : 'bg-amber-100 hover:bg-amber-200 text-amber-800'}`}
+                      >
+                        📄
+                        </button>
+                      )}
+                      {contrat.statut === 'actif' && (
                       <button
                         onClick={() => lancerSignatureContrat(contrat)}
                         title={
