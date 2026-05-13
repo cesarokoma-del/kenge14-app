@@ -10,6 +10,7 @@ const ROUTES_PUBLIQUES = [
   '/signature',       // /signature/[id]
   '/signature-bail',  // /signature-bail/[lienId]
   '/signature-decompte', // /signature-decompte/[lienId]
+  '/signature-resiliation', // /signature-resiliation/[lienId]
   '/demande',         // /demande/[id]
 ]
 
