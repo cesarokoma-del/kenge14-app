@@ -58,18 +58,22 @@ export default function MonSolde() {
   }
 
   const soldeNet = solde?.soldeNet || 0
-  const couleurSolde = soldeNet > 0 ? 'amber' : soldeNet < 0 ? 'red' : 'gray'
-
+  // Map littérale (Tailwind purge les classes non écrites en clair)
+  const couleurs = soldeNet < 0
+    ? { from: 'from-red-50', to: 'to-red-100', border: 'border-red-200', text: 'text-red-700' }
+    : soldeNet === 0
+    ? { from: 'from-gray-50', to: 'to-gray-100', border: 'border-gray-200', text: 'text-gray-700' }
+    : { from: 'from-amber-50', to: 'to-amber-100', border: 'border-amber-200', text: 'text-amber-700' }
   return (
     <LayoutGerant activePage="mon-solde">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">💰 Mon Solde</h1>
 
       {/* Carte principale du solde */}
-      <div className={`bg-gradient-to-br from-${couleurSolde}-50 to-${couleurSolde}-100 rounded-2xl shadow-lg p-8 border-2 border-${couleurSolde}-200 mb-6`}>
+      <div className={`bg-gradient-to-br ${couleurs.from} ${couleurs.to} rounded-2xl shadow-lg p-8 border-2 ${couleurs.border} mb-6`}>
         <div className="flex justify-between items-center">
           <div>
             <p className="text-sm text-gray-600 mb-1">Solde disponible</p>
-            <p className={`text-5xl font-bold text-${couleurSolde}-700`}>
+            <p className={`text-5xl font-bold ${couleurs.text}`}>
               {soldeNet.toFixed(0)} USD
             </p>
             <p className="text-xs text-gray-500 mt-2">

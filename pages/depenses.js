@@ -250,21 +250,50 @@ export default function Depenses() {
         </div>
       </div>
 
-      {/* 💰 2e ligne — Carte Compte Gérant (architecture compte gérant) */}
-        <div className="grid grid-cols-1 mb-6">
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl shadow-lg p-6 border-2 border-amber-200">
+      {/* 💰 2e ligne — Compte Gérant : 2 cartes (approvisionné / solde restant) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Carte 1 — Approvisionné cumulé (toujours verte) */}
+          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border-2 border-emerald-200">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm text-gray-600 mb-1">💰 Compte Gérant — Total approvisionné</p>
-                <p className="text-3xl font-bold text-amber-700">{soldeGerant.soldeNet.toFixed(0)} USD</p>
+                <p className="text-sm text-gray-600 mb-1">💰 Compte Gérant — Approvisionné</p>
+                <p className="text-3xl font-bold text-emerald-700">
+                  {(soldeGerant.totalApprovisionne || 0).toFixed(0)} USD
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Total versé au compte gérant cette année
+                  Cumul des versements depuis le début
                 </p>
               </div>
-              <div className="text-5xl opacity-60">💰</div>
+              <div className="text-5xl opacity-60">📥</div>
             </div>
           </div>
-        </div>      
+
+          {/* Carte 2 — Solde restant (couleur dynamique selon valeur) */}
+          {(() => {
+            const solde = soldeGerant.soldeNet || 0
+            const couleurs = solde < 0
+              ? { from: 'from-red-50', to: 'to-red-100', border: 'border-red-200', text: 'text-red-700' }
+              : solde === 0
+              ? { from: 'from-gray-50', to: 'to-gray-100', border: 'border-gray-200', text: 'text-gray-700' }
+              : { from: 'from-amber-50', to: 'to-amber-100', border: 'border-amber-200', text: 'text-amber-700' }
+            return (
+              <div className={`bg-gradient-to-br ${couleurs.from} ${couleurs.to} rounded-2xl shadow-lg p-6 border-2 ${couleurs.border}`}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">🧾 Compte Gérant — Solde restant</p>
+                    <p className={`text-3xl font-bold ${couleurs.text}`}>
+                      {solde.toFixed(0)} USD
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      À disposition du gérant maintenant
+                    </p>
+                  </div>
+                  <div className="text-5xl opacity-60">🧾</div>
+                </div>
+              </div>
+            )
+          })()}
+        </div>     
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 mb-6">
