@@ -403,6 +403,36 @@ useEffect(() => {
     doc.save(`Decompte-Fin-${nomLocataire}-${dateFin}-${suffix}.pdf`)
   }
 
+  async function telechargerAccordResiliationSigne(contrat) {
+    if (contrat.statut !== 'termine') {
+      alert('Ce contrat n\'a pas encore été terminé.')
+      return
+    }
+    if (!contrat.statut_signature_resiliation) {
+      alert('Aucun accord de résiliation n\'a été initié pour ce contrat.')
+      return
+    }
+
+    // Charger les paramètres bailleur
+    const { data: paramsBailleur } = await supabase
+      .from('parametres')
+      .select('*')
+      .limit(1)
+      .single()
+
+    const doc = genererAccordResiliationPDF({
+      contrat,
+      parametres: paramsBailleur || {},
+      signatureBailleur: signatureBailleurEnregistree || null,
+      signatureLocataire: contrat.signature_resiliation_locataire || null,
+    })
+
+    const nomLocataire = (contrat.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
+    const dateFin = contrat.date_fin_effective || new Date().toISOString().split('T')[0]
+    const suffix = contrat.statut_signature_resiliation === 'signe_complet' ? 'SIGNE' : 'EN-ATTENTE'
+    doc.save(`Accord-Resiliation-${nomLocataire}-${dateFin}-${suffix}.pdf`)
+  }
+
   function telechargerContratInitialPDF(contrat) {
     const doc = genererContratInitialPDF(contrat)
     const nomFichier = `Contrat-Bail-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Vierge'}.pdf`
@@ -1160,6 +1190,12 @@ useEffect(() => {
               {contrat.statut_signature_decompte === 'signe_complet' ? '✍️ Décompte signé' : '⏳ En attente locataire'}
             </span>
           )}
+
+          {contrat.statut === 'termine' && contrat.statut_signature_resiliation && (
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut_signature_resiliation === 'signe_complet' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'}`}>
+              {contrat.statut_signature_resiliation === 'signe_complet' ? '📜 Accord résilié' : '⏳ Accord en attente'}
+            </span>
+          )}
         </div>
                   </div>
 
@@ -1213,6 +1249,16 @@ useEffect(() => {
                         📄
                         </button>
                       )}
+
+                      {contrat.statut === 'termine' && contrat.statut_signature_resiliation && (
+                      <button
+                        onClick={() => telechargerAccordResiliationSigne(contrat)}
+                        title={contrat.statut_signature_resiliation === 'signe_complet' ? 'Télécharger l\'accord de résiliation signé' : 'Télécharger l\'accord (en attente locataire)'}
+                        className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${contrat.statut_signature_resiliation === 'signe_complet' ? 'bg-purple-100 hover:bg-purple-200 text-purple-800' : 'bg-amber-100 hover:bg-amber-200 text-amber-800'}`}
+                      >
+                        📜
+                      </button>
+                    )}
                       {contrat.statut === 'actif' && (
                       <button
                         onClick={() => lancerSignatureContrat(contrat)}
