@@ -8,9 +8,10 @@ import {
   formatMoisConcerne,
 } from '../lib/decompteFinContrat'
 import { genererDecompteFinPDF } from '../lib/genererDecompteFinPDF'
+import { genererAccordResiliationPDF } from '../lib/genererAccordResiliationPDF'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
-import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur } from '../lib/supabase'
+import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur, creerLienSignatureResiliation, signerResiliationCommeLocataire } from '../lib/supabase'
 
 export default function Contrats() {
   const router = useRouter()
@@ -40,6 +41,11 @@ const [chargementDecompte, setChargementDecompte] = useState(false)
   
   const [signatureBailleurEnregistree, setSignatureBailleurEnregistree] = useState(null)
   const [confirmationSignature, setConfirmationSignature] = useState(false)
+
+  // États accord de résiliation amiable
+  const [dateEtatLieux, setDateEtatLieux] = useState('')
+  const [heureEtatLieux, setHeureEtatLieux] = useState('')
+  const [lienResiliation, setLienResiliation] = useState(null)
 
   // Charger la signature bailleur depuis les paramètres (une seule fois au montage)
   useEffect(() => {
@@ -205,6 +211,9 @@ useEffect(() => {
     setLienGenere(null)
     setContratTermineId(null)
     setConfirmationSignature(false)
+    setDateEtatLieux('')
+    setHeureEtatLieux('')
+    setLienResiliation(null)
     setTerminerData({
       date_fin_effective: new Date().toISOString().split('T')[0],
       raison_fin: 'fin_normale',
@@ -219,6 +228,9 @@ useEffect(() => {
     setLienGenere(null)
     setContratTermineId(null)
     setConfirmationSignature(false)
+    setDateEtatLieux('')
+    setHeureEtatLieux('')
+    setLienResiliation(null)
     setTerminerData({
       date_fin_effective: new Date().toISOString().split('T')[0],
       raison_fin: 'fin_normale',
@@ -248,6 +260,12 @@ useEffect(() => {
       return
     }
     const signatureBailleurPNG = signatureBailleurEnregistree
+
+    // Validation des champs état des lieux (pour l'accord de résiliation)
+    if (!dateEtatLieux || !heureEtatLieux) {
+      alert('Veuillez renseigner la date et l\'heure de l\'état des lieux de sortie.')
+      return
+    }
 
     // 1. UPDATE des champs métier du contrat
     const { error: errorUpdate } = await supabase
@@ -279,6 +297,20 @@ useEffect(() => {
       alert('Erreur lors de la génération du lien: ' + errorSign.message)
       return
     }
+
+    // 3bis. Créer le lien de signature pour l'accord de résiliation amiable
+    const { error: errorResil, lien: lienResil } = await creerLienSignatureResiliation(
+      showTerminerModal.id,
+      dateEtatLieux,
+      heureEtatLieux
+    )
+
+    if (errorResil) {
+      alert('Erreur lors de la génération du lien de résiliation : ' + errorResil.message)
+      return
+    }
+
+    setLienResiliation(lienResil)
 
     // 3. Passer à l'écran de succès
     setLienGenere(lien)
@@ -549,6 +581,42 @@ useEffect(() => {
       Le jour de fin n'est pas compté dans les loyers (locataire libère le matin).
     </p>
   </div>
+
+  {/* État des lieux de sortie (pour l'accord de résiliation) */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm font-semibold text-amber-900 mb-2">
+              📅 Rendez-vous état des lieux de sortie
+            </p>
+            <p className="text-xs text-amber-800 mb-3">
+              Ces informations seront mentionnées dans l'accord de résiliation amiable (Article 4).
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Date <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={dateEtatLieux}
+                  onChange={(e) => setDateEtatLieux(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Heure <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={heureEtatLieux}
+                  onChange={(e) => setHeureEtatLieux(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+            </div>
+          </div>
 
   {/* Raison */}
   <div className="mb-4">
@@ -890,6 +958,85 @@ useEffect(() => {
       >
         📥 Télécharger PDF brouillon (sans signature locataire)
       </button>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+        {/* SECTION ACCORD DE RÉSILIATION AMIABLE                   */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {lienResiliation && (
+          <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+            <label className="block text-xs font-medium text-purple-700 mb-2">
+              📜 ACCORD DE RÉSILIATION AMIABLE — Lien de signature locataire
+            </label>
+            <div className="bg-white border border-purple-300 rounded-lg px-3 py-2 font-mono text-xs break-all mb-3">
+              {`${typeof window !== 'undefined' ? window.location.origin : ''}/signature-resiliation/${lienResiliation}`}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/signature-resiliation/${lienResiliation}`
+                  navigator.clipboard.writeText(url)
+                  alert('✅ Lien résiliation copié dans le presse-papier')
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-3 rounded-lg font-semibold border border-gray-300"
+              >
+                📋 Copier le lien
+              </button>
+
+              <button
+                onClick={() => {
+                  const telLocataire = showTerminerModal.locataire?.telephone || ''
+                  const telFormate = telLocataire.replace(/[^\d+]/g, '').replace(/^\+/, '')
+                  const url = `${window.location.origin}/signature-resiliation/${lienResiliation}`
+
+                  const message = encodeURIComponent(
+                    `Bonjour ${showTerminerModal.locataire?.noms_complet || ''},\n\n` +
+                    `Voici l'accord de résiliation amiable à signer :\n${url}\n\n` +
+                    `Merci de bien vouloir le consulter et le signer.\n\n` +
+                    `Cordialement, KENGE 14`
+                  )
+                  const waUrl = telFormate
+                    ? `https://wa.me/${telFormate}?text=${message}`
+                    : `https://wa.me/?text=${message}`
+                  window.open(waUrl, '_blank')
+                }}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-semibold"
+              >
+                💬 Ouvrir WhatsApp
+              </button>
+            </div>
+
+            <button
+              onClick={async () => {
+                const { data: contratAJour } = await supabase
+                  .from('contrats')
+                  .select('*, locataire:locataires(*), appartement:appartements(*)')
+                  .eq('id', contratTermineId)
+                  .single()
+                const { data: paramsBailleur } = await supabase
+                  .from('parametres')
+                  .select('*')
+                  .limit(1)
+                  .single()
+                if (contratAJour) {
+                  const doc = genererAccordResiliationPDF({
+                    contrat: contratAJour,
+                    parametres: paramsBailleur || {},
+                    signatureBailleur: signatureBailleurEnregistree || null,
+                    signatureLocataire: contratAJour.signature_resiliation_locataire || null,
+                  })
+                  const nomLocataire = (contratAJour.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
+                  const dateFin = contratAJour.date_fin_effective || new Date().toISOString().split('T')[0]
+                  const suffix = contratAJour.statut_signature_resiliation === 'signe_complet' ? 'SIGNE' : 'BROUILLON'
+                  doc.save(`Accord-Resiliation-${nomLocataire}-${dateFin}-${suffix}.pdf`)
+                }
+              }}
+              className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg font-semibold text-sm border border-purple-200"
+            >
+              📥 Télécharger PDF brouillon (sans signature locataire)
+            </button>
+          </div>
+        )}
 
       <button
         onClick={fermerModaleTerminer}
