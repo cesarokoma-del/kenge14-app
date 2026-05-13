@@ -48,6 +48,7 @@ export default function LayoutGerant({ children, activePage }) {
     { id: 'depenses',     label: 'Mes Dépenses', href: '/gerant/depense', icone: '📝' },
     { id: 'mon-solde',     label: 'Mon Solde',      href: '/gerant/mon-solde',     icone: '💰' },
     { id: 'paiement-cash', label: 'Paiement Cash',   href: '/gerant/paiement-cash', icone: '💵' },
+    { id: 'mon-profil',    label: 'Mon Profil',      href: '/gerant/mon-profil',    icone: '👤' },
   ]
 
   return (
