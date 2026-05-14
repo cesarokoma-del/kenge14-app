@@ -13,6 +13,7 @@ import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
 import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur, creerLienSignatureResiliation, signerResiliationCommeLocataire } from '../lib/supabase'
 import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
+import { chargerEtatLieuxParContrat } from '../lib/etatsLieux'
 
 export default function Contrats() {
   const router = useRouter()
@@ -20,6 +21,8 @@ export default function Contrats() {
   const [appartements, setAppartements] = useState([])
   const [locataires, setLocataires] = useState([])
   const [loading, setLoading] = useState(true)
+  // Map { contratId: { entree: <etat ou null>, sortie: <etat ou null> } }
+  const [etatsLieuxParContrat, setEtatsLieuxParContrat] = useState({})
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [filterStatut, setFilterStatut] = useState('actif')
@@ -142,6 +145,24 @@ useEffect(() => {
     setContrats(contratsAvecRelations)
     setAppartements(apptsData || [])
     setLocataires(locatairesData || [])
+
+    // Charger les états des lieux pour tous les contrats en parallèle
+    // Map { contratId: { entree, sortie } } — null si pas encore créé
+    if (contratsAvecRelations.length > 0) {
+      const chargements = await Promise.all(
+        contratsAvecRelations.flatMap(c => [
+          chargerEtatLieuxParContrat(c.id, 'entree').then(r => ({ contratId: c.id, type: 'entree', data: r.data })),
+          chargerEtatLieuxParContrat(c.id, 'sortie').then(r => ({ contratId: c.id, type: 'sortie', data: r.data })),
+        ])
+      )
+      const map = {}
+      for (const { contratId, type, data } of chargements) {
+        if (!map[contratId]) map[contratId] = { entree: null, sortie: null }
+        map[contratId][type] = data
+      }
+      setEtatsLieuxParContrat(map)
+    }
+
     setLoading(false)
   }
 
@@ -1218,7 +1239,14 @@ useEffect(() => {
                   {isExpiring && <div className="mt-3 p-2 bg-orange-100 rounded text-sm text-orange-800">⚠️ Expire dans {joursAvantFin} jour(s)</div>}
                   {isExpired && <div className="mt-3 p-2 bg-red-100 rounded text-sm text-red-800">🚨 Contrat expiré depuis {Math.abs(joursAvantFin)} jour(s) — terminez-le</div>}
 
-                  {contrat.clauses_speciales && (<p className="text-sm text-gray-500 mt-2 italic">{contrat.clauses_speciales}</p>)}
+                  
+                  {/* Badges états des lieux */}
+                  {(etatsLieuxParContrat[contrat.id]?.entree || etatsLieuxParContrat[contrat.id]?.sortie) && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <BadgeEtatLieux etat={etatsLieuxParContrat[contrat.id]?.entree} type="entree" />
+                      <BadgeEtatLieux etat={etatsLieuxParContrat[contrat.id]?.sortie} type="sortie" />
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2 mt-4">
                     {contrat.statut === 'actif' && (
@@ -1281,6 +1309,62 @@ useEffect(() => {
                          contrat.statut_signature === 'bailleur_signe' ? '⏳' : '📝'}
                       </button>
                     )}
+
+                    {/* Boutons États des Lieux (entrée toujours, sortie si contrat terminé) */}
+                    <button
+                      onClick={() => {
+                        const statut = etatsLieuxParContrat[contrat.id]?.entree?.statut
+                        const cible = (statut === 'signe_locataire' || statut === 'valide_bailleur')
+                          ? `/etats-lieux/${contrat.id}/entree/apercu`
+                          : `/etats-lieux/${contrat.id}/entree`
+                        router.push(cible)
+                      }}
+                      title={
+                        etatsLieuxParContrat[contrat.id]?.entree?.statut === 'valide_bailleur' ? 'État des lieux d\'entrée — validé' :
+                        etatsLieuxParContrat[contrat.id]?.entree?.statut === 'signe_locataire' ? 'État des lieux d\'entrée — signé locataire, à valider' :
+                        etatsLieuxParContrat[contrat.id]?.entree?.statut === 'brouillon' ? 'État des lieux d\'entrée — brouillon en cours' :
+                        'Créer l\'état des lieux d\'entrée'
+                      }
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${
+                        etatsLieuxParContrat[contrat.id]?.entree?.statut === 'valide_bailleur'
+                          ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                          : etatsLieuxParContrat[contrat.id]?.entree?.statut === 'signe_locataire'
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-800'
+                          : etatsLieuxParContrat[contrat.id]?.entree?.statut === 'brouillon'
+                          ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                      }`}
+                    >
+                      📋
+                    </button>
+                    {contrat.statut === 'termine' && (
+                      <button
+                        onClick={() => {
+                          const statut = etatsLieuxParContrat[contrat.id]?.sortie?.statut
+                          const cible = (statut === 'signe_locataire' || statut === 'valide_bailleur')
+                            ? `/etats-lieux/${contrat.id}/sortie/apercu`
+                            : `/etats-lieux/${contrat.id}/sortie`
+                          router.push(cible)
+                        }}
+                        title={
+                          etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'valide_bailleur' ? 'État des lieux de sortie — validé' :
+                          etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'signe_locataire' ? 'État des lieux de sortie — signé locataire, à valider' :
+                          etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'brouillon' ? 'État des lieux de sortie — brouillon en cours' :
+                          'Créer l\'état des lieux de sortie'
+                        }
+                        className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${
+                          etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'valide_bailleur'
+                            ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                            : etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'signe_locataire'
+                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-800'
+                            : etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'brouillon'
+                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                        }`}
+                      >
+                        📤
+                      </button>
+                    )}
                     <button onClick={() => handleDelete(contrat.id)} className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded-lg text-sm font-semibold transition">🗑️</button>
                   </div>
                 </div>
@@ -1290,5 +1374,35 @@ useEffect(() => {
         )}
       </div>
     </Layout>
+  )
+}
+
+// ============================================================
+// Sous-composant : Badge d'état des lieux (entrée ou sortie)
+// ============================================================
+function BadgeEtatLieux({ etat, type }) {
+  if (!etat) return null
+
+  const config = {
+    'brouillon': {
+      txt: 'brouillon',
+      cls: 'bg-gray-100 text-gray-700 border-gray-300',
+    },
+    'signe_locataire': {
+      txt: 'signé locataire',
+      cls: 'bg-amber-100 text-amber-800 border-amber-300',
+    },
+    'valide_bailleur': {
+      txt: 'validé ✓',
+      cls: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    },
+  }[etat.statut] || { txt: etat.statut, cls: 'bg-gray-100 text-gray-700' }
+
+  const labelType = type === 'entree' ? '📥 Entrée' : '📤 Sortie'
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${config.cls}`}>
+      {labelType} : {config.txt}
+    </span>
   )
 }
