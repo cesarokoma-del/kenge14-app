@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import LayoutGerant from '../../components/LayoutGerant'
 import { supabase, getProfilUtilisateur } from '../../lib/supabase'
+import { formatDateFR } from '../../lib/dateUtils'
 
 export default function DepenseGerant() {
   const router = useRouter()
@@ -227,7 +228,7 @@ export default function DepenseGerant() {
               <div className="bg-amber-50 rounded-xl p-4 mb-5 space-y-2 text-sm">
                 <p><strong>Catégorie :</strong> {categorie}</p>
                 <p><strong>Montant :</strong> <span className="text-amber-700 font-bold text-lg">{montant} USD</span></p>
-                <p><strong>Date :</strong> {new Date(dateDepense).toLocaleDateString('fr-FR')}</p>
+                <p><strong>Date :</strong> {formatDateFR(dateDepense)}</p>
                 <p><strong>Description :</strong> {description}</p>
                 {appartementId && (
                   <p><strong>Appartement :</strong> {appartements.find(a => a.id === appartementId)?.nom}</p>

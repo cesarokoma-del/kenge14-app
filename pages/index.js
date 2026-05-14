@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
 import { supabase, calculerSoldeBancaire } from '../lib/supabase'
+import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
 
 export default function TableauDeBord() {
   const [stats, setStats] = useState({
@@ -104,8 +105,9 @@ export default function TableauDeBord() {
         revenuMensuelAttendu += parseFloat(contratActif.loyer || 0)
 
         if (contratActif.date_fin) {
-      const dateFin = new Date(contratActif.date_fin)
-      if (dateFin >= aujourdhui && dateFin <= dans90Jours) {
+      const dateFin = parseDateLocale(contratActif.date_fin)
+      if (dateFin && dateFin >= aujourdhui && dateFin <= dans90Jours) {
+
         // Ne pas compter comme "expirant" si un contrat futur prend déjà le relais
         const aDejaUnSuccesseur = contratsData?.some(c => 
           c.appartement_id === appt.id && c.statut === 'futur'
@@ -336,7 +338,7 @@ export default function TableauDeBord() {
                   <p className="font-semibold">{d.noms_complet}</p>
                   <p className="text-sm text-gray-600">{d.appartement?.nom || '?'} • {d.telephone}</p>
                 </div>
-                <p className="text-xs text-gray-500">{new Date(d.date_demande).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-gray-500">{formatDateFR(d.date_demande)}</p>
               </div>
             ))}
           </div>
@@ -357,7 +359,7 @@ export default function TableauDeBord() {
                 <div>
                   <p className="font-semibold">{p.contrat?.locataire?.noms_complet || 'Locataire inconnu'}</p>
                   <p className="text-sm text-gray-600">
-                    🏢 {p.contrat?.appartement?.nom || '?'} • {new Date(p.date_paiement).toLocaleDateString('fr-FR')}
+                    🏢 {p.contrat?.appartement?.nom || '?'} • {formatDateFR(p.date_paiement)}
                   </p>
                 </div>
                 <p className="text-xl font-bold text-emerald-700">{parseFloat(p.montant).toFixed(0)} USD</p>

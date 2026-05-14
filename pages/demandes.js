@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { supabase, getProfilUtilisateur } from '../lib/supabase'
+import { formatDateFR } from '../lib/dateUtils'
 
 export default function Demandes() {
   const [demandes, setDemandes] = useState([])
@@ -77,7 +78,7 @@ export default function Demandes() {
         email: demande.email,
         profession: demande.profession,
         adresse_precedente: demande.adresse_actuelle,
-        notes: `Créé depuis demande du ${new Date(demande.date_demande).toLocaleDateString('fr-FR')}. Occupants: ${demande.nombre_occupants}.`
+        notes: `Créé depuis demande du ${formatDateFR(demande.date_demande)}. Occupants: ${demande.nombre_occupants}.`
       })
       .select()
       .single()
@@ -239,14 +240,14 @@ export default function Demandes() {
                   {d.profession && <p>💼 {d.profession}</p>}
                   {d.nombre_occupants && <p>👨‍👩‍👧 {d.nombre_occupants} occupant(s)</p>}
                   {d.adresse_actuelle && <p>📍 {d.adresse_actuelle}</p>}
-                  {d.date_debut_souhaitee && <p>📅 Souhaite emménager le {new Date(d.date_debut_souhaitee).toLocaleDateString('fr-FR')}</p>}
+                  {d.date_debut_souhaitee && <p>📅 Souhaite emménager le {formatDateFR(d.date_debut_souhaitee)}</p>}
                   {d.duree_souhaitee_mois && <p>⏱️ Durée souhaitée : {d.duree_souhaitee_mois} mois</p>}
                 </div>
 
                 {d.message && <p className="text-sm text-gray-600 mt-2 italic border-t pt-2">💬 "{d.message}"</p>}
                 {d.motif_refus && <p className="text-sm text-red-700 mt-2 border-t pt-2">❌ Motif du refus : {d.motif_refus}</p>}
 
-                <p className="text-xs text-gray-500 mt-2">Reçu le {new Date(d.date_demande).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-gray-500 mt-2">Reçu le {formatDateFR(d.date_demande)}</p>
 
                 <div className="flex flex-wrap gap-2 mt-4">
                   {d.statut === 'en_attente' && (

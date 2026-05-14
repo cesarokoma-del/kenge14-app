@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { getSoldeGerant, getPremierGerantId } from '../lib/comptesGerants'
+import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
 
 export default function Depenses() {
   const [depenses, setDepenses] = useState([])
@@ -178,12 +179,17 @@ export default function Depenses() {
   const aujourdhui = new Date()
   const debutMois = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1)
   const totalCeMois = depenses
-    .filter(d => new Date(d.date_depense) >= debutMois)
+    .filter(d => {
+      const date = parseDateLocale(d.date_depense)
+      return date && date >= debutMois
+    })
     .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
-
   const totalAnnee = depenses
-    .filter(d => new Date(d.date_depense).getFullYear() === aujourdhui.getFullYear())
-    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)  
+    .filter(d => {
+      const date = parseDateLocale(d.date_depense)
+      return date && date.getFullYear() === aujourdhui.getFullYear()
+    })
+    .reduce((sum, d) => sum + parseFloat(d.montant || 0), 0)
    
   const depensesFiltrees = filterCategorie === 'toutes'
     ? depenses
@@ -389,7 +395,7 @@ export default function Depenses() {
                   const estApprovisionnement = d.categorie === 'approvisionnement_gerant'
                   return (
                   <tr key={d.id} className={`border-b hover:bg-gray-50 ${estApprovisionnement ? 'bg-amber-50' : ''}`}>
-                    <td className="py-3 px-2">{new Date(d.date_depense).toLocaleDateString('fr-FR')}</td>
+                    <td className="py-3 px-2">{formatDateFR(d.date_depense)}</td>
                     <td className="py-3 px-2">{getCategorieLabel(d.categorie)}</td>
                     <td className="py-3 px-2">{d.appartement?.nom || '—'}</td>
                     <td className="py-3 px-2 text-gray-600 max-w-xs truncate">

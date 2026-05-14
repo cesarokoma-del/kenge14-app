@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import LayoutGerant from '../../components/LayoutGerant'
 import { supabase } from '../../lib/supabase'
 import { getSoldeGerant } from '../../lib/comptesGerants'
+import { formatDateFR } from '../../lib/dateUtils'
 
 export default function MonSolde() {
   const [loading, setLoading] = useState(true)
@@ -78,7 +79,7 @@ export default function MonSolde() {
             </p>
             <p className="text-xs text-gray-500 mt-2">
               {solde?.derniereOperation
-                ? `Dernière opération : ${new Date(solde.derniereOperation).toLocaleDateString('fr-FR')}`
+                ? `Dernière opération : ${formatDateFR(solde.derniereOperation)}`
                 : 'Aucune opération enregistrée'}
             </p>
           </div>
@@ -127,7 +128,7 @@ export default function MonSolde() {
             <tbody>
               {approvisionnements.map(a => (
                 <tr key={a.id} className="border-b hover:bg-amber-50">
-                  <td className="py-3 px-2">{new Date(a.date_depense).toLocaleDateString('fr-FR')}</td>
+                  <td className="py-3 px-2">{formatDateFR(a.date_depense)}</td>
                   <td className="py-3 px-2">{a.description || '—'}</td>
                   <td className="py-3 px-2 text-right font-bold text-green-700">
                     +{parseFloat(a.montant).toFixed(0)} USD
@@ -159,7 +160,7 @@ export default function MonSolde() {
             <tbody>
               {depensesGerant.map(d => (
                 <tr key={d.id} className="border-b hover:bg-orange-50">
-                  <td className="py-3 px-2">{new Date(d.date_depense).toLocaleDateString('fr-FR')}</td>
+                  <td className="py-3 px-2">{formatDateFR(d.date_depense)}</td>
                   <td className="py-3 px-2">{d.categorie}</td>
                   <td className="py-3 px-2">{d.description || '—'}</td>
                   <td className="py-3 px-2 text-right font-bold text-orange-700">

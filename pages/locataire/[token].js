@@ -2,6 +2,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { getEspaceLocataire } from '../../lib/supabase'
+import { parseDateLocale, formatDateFR, formatDateFRLong } from '../../lib/dateUtils'
 
 export default function EspaceLocataire() {
   const router = useRouter()
@@ -35,8 +36,8 @@ export default function EspaceLocataire() {
   // Calcul du solde
   function calculerSolde() {
     if (!data?.contrat || !data?.paiementsTous) return null
-
-    const dateDebut = new Date(data.contrat.date_debut)
+    const dateDebut = parseDateLocale(data.contrat.date_debut)
+    if (!dateDebut) return null
     const aujourdhui = new Date()
     
     const moisEcoules = Math.max(0, 
@@ -60,8 +61,8 @@ export default function EspaceLocataire() {
   // Calculer le prochain loyer dû
   function getProchainLoyerDu() {
     if (!data?.contrat) return null
-    
-    const dateDebut = new Date(data.contrat.date_debut)
+    const dateDebut = parseDateLocale(data.contrat.date_debut)
+    if (!dateDebut) return null
     const jourDuMois = dateDebut.getDate()
     const aujourdhui = new Date()
     
@@ -242,9 +243,7 @@ export default function EspaceLocataire() {
     y += 6
     doc.text(`Mois concerné : ${paiement.mois_concerne || 'N/A'}`, margin, y)
     y += 6
-    doc.text(`Date de paiement : ${new Date(paiement.date_paiement).toLocaleDateString('fr-FR', { 
-      day: 'numeric', month: 'long', year: 'numeric' 
-    })}`, margin, y)
+    doc.text(`Date de paiement : ${formatDateFRLong(paiement.date_paiement)}`, margin, y)
     y += 6
     
     const methode = (paiement.methode || 'N/A').replace(/_/g, ' ')
@@ -415,13 +414,13 @@ export default function EspaceLocataire() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Début du contrat</span>
                 <span className="font-semibold">
-                  {new Date(contrat.date_debut).toLocaleDateString('fr-FR')}
+                  {formatDateFR(contrat.date_debut)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Fin du contrat</span>
                 <span className="font-semibold">
-                  {new Date(contrat.date_fin).toLocaleDateString('fr-FR')}
+                  {formatDateFR(contrat.date_fin)}
                 </span>
               </div>
             </div>
@@ -463,11 +462,7 @@ export default function EspaceLocataire() {
                       )}
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
-                      Payé le {new Date(p.date_paiement).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
+                      Payé le {formatDateFRLong(p.date_paiement)}
                     </p>
                   </div>
                   <button

@@ -12,6 +12,7 @@ import { genererAccordResiliationPDF } from '../lib/genererAccordResiliationPDF'
 import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
 import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur, creerLienSignatureResiliation, signerResiliationCommeLocataire } from '../lib/supabase'
+import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
 
 export default function Contrats() {
   const router = useRouter()
@@ -521,7 +522,8 @@ useEffect(() => {
   function getJoursAvantFin(dateFin) {
     if (!dateFin) return null
     const aujourdhui = new Date()
-    const fin = new Date(dateFin)
+    const fin = parseDateLocale(dateFin)
+    if (!fin) return null
     return Math.ceil((fin - aujourdhui) / (1000 * 60 * 60 * 24))
   }
 
@@ -1200,15 +1202,15 @@ useEffect(() => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm mt-3 border-t pt-3">
-                    <div><p className="text-gray-500">Début</p><p className="font-semibold">{contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'}</p></div>
-                    <div><p className="text-gray-500">Fin prévue</p><p className="font-semibold">{contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : '—'}</p></div>
+                    <div><p className="text-gray-500">Début</p><p className="font-semibold">{formatDateFR(contrat.date_debut)}</p></div>
+                    <div><p className="text-gray-500">Fin prévue</p><p className="font-semibold">{formatDateFR(contrat.date_fin)}</p></div>
                     <div><p className="text-gray-500">Loyer</p><p className="font-bold text-emerald-700">{contrat.loyer} USD</p></div>
                     <div><p className="text-gray-500">Garantie</p><p className="font-semibold">{contrat.garantie || 0} USD</p></div>
                   </div>
 
                   {contrat.date_fin_effective && (
                     <div className="mt-3 p-2 bg-gray-100 rounded text-sm">
-                      <p>📅 <strong>Fin effective :</strong> {new Date(contrat.date_fin_effective).toLocaleDateString('fr-FR')}</p>
+                      <p>📅 <strong>Fin effective :</strong> {formatDateFR(contrat.date_fin_effective)}</p>
                       {contrat.raison_fin && <p>📌 <strong>Raison :</strong> {contrat.raison_fin.replace('_', ' ')}</p>}
                     </div>
                   )}
