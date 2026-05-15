@@ -7,6 +7,8 @@ import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
 import { listerStockActuel, CATEGORIES_INVENTAIRE, getInfoCategorie } from '../lib/inventaire'
+import Link from 'next/link'
+import PanneauNouvelleEntree from '../components/PanneauNouvelleEntree'
 
 export default function PageInventaire() {
   return (
@@ -129,6 +131,11 @@ function Contenu() {
             </div>
           </div>
         </div>
+
+        {/* Barre d'actions */}
+        <div className="mb-4">
+          <PanneauNouvelleEntree onEntreeEnregistree={chargerItems} />
+        </div>  
 
         {/* Liste */}
         {loading ? (
