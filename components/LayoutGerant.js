@@ -43,6 +43,7 @@ export default function LayoutGerant({ children, activePage }) {
   // ─── Liste des onglets du menu gérant ────────────────────
   const onglets = [
     { id: 'dashboard',     label: 'Mon Espace',      href: '/gerant/dashboard',     icone: '🏠' },
+    { id: 'appartements',  label: 'Appartements',    href: '/gerant/appartements',  icone: '🏢' },
     { id: 'locataires',    label: 'Locataires',      href: '/locataires',           icone: '👥' },
     { id: 'demandes',      label: 'Demandes',        href: '/demandes',             icone: '📨' },
     { id: 'depenses',     label: 'Mes Dépenses', href: '/gerant/depense', icone: '📝' },
