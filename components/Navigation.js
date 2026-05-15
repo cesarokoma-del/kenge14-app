@@ -9,6 +9,7 @@ export default function Navigation({ activePage }) {
     { id: 'contrats', label: 'Contrats', icon: '📄', path: '/contrats' },
     { id: 'paiements', label: 'Paiements', icon: '💰', path: '/paiements' },
     { id: 'depenses', label: 'Dépenses', icon: '📊', path: '/depenses' },
+    { id: 'inventaire', label: 'Inventaire', icon: '📦', path: '/inventaire' },
     { id: 'renouvellements', label: 'Renouvellements', icon: '🔄', path: '/renouvellements' },
     { id: 'parametres', label: 'Paramètres', icon: '⚙️', path: '/parametres' },
   ]
