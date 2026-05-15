@@ -42,15 +42,16 @@ export default function LayoutGerant({ children, activePage }) {
 
   // ─── Liste des onglets du menu gérant ────────────────────
   const onglets = [
-    { id: 'dashboard',     label: 'Mon Espace',      href: '/gerant/dashboard',     icone: '🏠' },
-    { id: 'appartements',  label: 'Appartements',    href: '/gerant/appartements',  icone: '🏢' },
-    { id: 'locataires',    label: 'Locataires',      href: '/locataires',           icone: '👥' },
-    { id: 'demandes',      label: 'Demandes',        href: '/demandes',             icone: '📨' },
-    { id: 'depenses',     label: 'Mes Dépenses', href: '/gerant/depense', icone: '📝' },
-    { id: 'mon-solde',     label: 'Mon Solde',      href: '/gerant/mon-solde',     icone: '💰' },
-    { id: 'paiement-cash', label: 'Paiement Cash',   href: '/gerant/paiement-cash', icone: '💵' },
-    { id: 'mon-profil',    label: 'Mon Profil',      href: '/gerant/mon-profil',    icone: '👤' },
-  ]
+  { id: 'dashboard',         label: 'Mon Espace',    href: '/gerant/dashboard',         icone: '🏠' },
+  { id: 'appartements',      label: 'Appartements',  href: '/gerant/appartements',      icone: '🏢' },
+  { id: 'locataires',        label: 'Locataires',    href: '/locataires',               icone: '👥' },
+  { id: 'demandes',          label: 'Demandes',      href: '/demandes',                 icone: '📋' },
+  { id: 'depenses',          label: 'Mes Dépenses',  href: '/gerant/depense',           icone: '💸' },
+  { id: 'inventaire-sortie', label: 'Sortie Stock',  href: '/gerant/inventaire-sortie', icone: '📤' },
+  { id: 'mon-solde',         label: 'Mon Solde',     href: '/gerant/mon-solde',         icone: '💰' },
+  { id: 'paiement-cash',     label: 'Paiement Cash', href: '/gerant/paiement-cash',     icone: '💵' },
+  { id: 'mon-profil',        label: 'Mon Profil',    href: '/gerant/mon-profil',        icone: '👤' },
+]
 
   return (
     <RouteGuard rolesAutorises={['gerant']}>
