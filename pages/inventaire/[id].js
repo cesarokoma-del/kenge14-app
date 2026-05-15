@@ -320,7 +320,7 @@ export default function ItemDetailPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Seuil d'alerte</label>
                     <input
-                      type="number" min="0" step="0.01"
+                      type="number" min="0" step="1"
                       value={form.seuil_alerte}
                       onChange={(e) => majChamp('seuil_alerte', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"

@@ -167,7 +167,7 @@ export default function NouvelItemPage() {
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="1"
                     value={form.quantite_initiale}
                     onChange={(e) => majChamp('quantite_initiale', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
@@ -194,7 +194,7 @@ export default function NouvelItemPage() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={form.seuil_alerte}
                   onChange={(e) => majChamp('seuil_alerte', e.target.value)}
                   placeholder="Optionnel"
