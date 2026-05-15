@@ -28,6 +28,13 @@ function Contenu() {
   const [recherche, setRecherche] = useState('')
   const [categorieFiltre, setCategorieFiltre] = useState('')
   const [stockBasUniquement, setStockBasUniquement] = useState(false)
+
+// Pré-active le filtre "stock bas" si URL contient ?stockBas=1
+useEffect(() => {
+  if (router.isReady && router.query.stockBas === '1') {
+    setStockBasUniquement(true)
+  }
+}, [router.isReady, router.query.stockBas])
   const [inclureInactifs, setInclureInactifs] = useState(false)
 
   useEffect(() => {

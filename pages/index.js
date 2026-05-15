@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { getStockBas } from '../lib/inventaire'
 import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
 import { supabase, calculerSoldeBancaire } from '../lib/supabase'
@@ -18,6 +19,16 @@ export default function TableauDeBord() {
     demandesEnAttente: 0,
     contratsExpirant: 0
   })
+  const [itemsStockBas, setItemsStockBas] = useState([])
+
+useEffect(() => {
+  chargerStockBas()
+}, [])
+
+async function chargerStockBas() {
+  const { data } = await getStockBas()
+  setItemsStockBas(data || [])
+}
   const [paiementsRecents, setPaiementsRecents] = useState([])
   const [demandesRecentes, setDemandesRecentes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -198,7 +209,7 @@ export default function TableauDeBord() {
     <Layout activePage="dashboard">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Tableau de Bord</h1>
 
-      {(stats.demandesEnAttente > 0 || stats.contratsExpirant > 0 || stats.loyersEnRetard > 0) && (
+      {(stats.demandesEnAttente > 0 || stats.contratsExpirant > 0 || stats.loyersEnRetard > 0 || itemsStockBas.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           {stats.demandesEnAttente > 0 && (
             <Link href="/demandes" className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded hover:bg-yellow-100 transition">
@@ -220,8 +231,17 @@ export default function TableauDeBord() {
               <p className="text-2xl font-bold text-red-800">{stats.loyersEnRetard}</p>
               <p className="text-xs text-red-600 mt-1">Cliquez pour relancer</p>
             </Link>
-          )}
-        </div>
+            )}
+            {itemsStockBas.length > 0 && (
+              <Link href="/inventaire?stockBas=1" className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded hover:bg-amber-100 transition-colors">
+                <p className="text-sm text-amber-700">📦 Stock bas</p>
+                <p className="text-2xl font-bold text-amber-800">{itemsStockBas.length}</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  {itemsStockBas.length === 1 ? '1 item à réapprovisionner' : `${itemsStockBas.length} items à réapprovisionner`}
+                </p>
+              </Link>
+            )}
+          </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
