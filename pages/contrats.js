@@ -417,6 +417,9 @@ useEffect(() => {
       parametres: paramsBailleur || {},
       signatureBailleur: contrat.signature_decompte_bailleur || null,
       signatureLocataire: contrat.signature_decompte_locataire || null,
+      etatLieuxSortie: etatsLieuxParContrat[contrat.id]?.sortie?.statut === 'valide_bailleur'
+        ? etatsLieuxParContrat[contrat.id].sortie
+        : null,
     })
 
     const nomLocataire = (contrat.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
@@ -1000,6 +1003,9 @@ useEffect(() => {
               parametres: paramsBailleur || {},
               signatureBailleur: contratAJour.signature_decompte_bailleur || null,
               signatureLocataire: contratAJour.signature_decompte_locataire || null,
+              etatLieuxSortie: etatsLieuxParContrat[contratAJour.id]?.sortie?.statut === 'valide_bailleur'
+                ? etatsLieuxParContrat[contratAJour.id].sortie
+                : null,
             })
             const nomLocataire = (contratAJour.locataire?.noms_complet || 'locataire').replace(/\s+/g, '-')
             const dateFin = contratAJour.date_fin_effective || new Date().toISOString().split('T')[0]

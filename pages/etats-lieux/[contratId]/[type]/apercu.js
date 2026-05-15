@@ -15,6 +15,7 @@ import {
   validerParBailleur,
 } from '../../../../lib/etatsLieux'
 import { formatDateFR, formatDateHeureFR } from '../../../../lib/dateUtils'
+import { genererEtatLieuxPDF } from '../../../../lib/genererEtatLieuxPDF'
 
 export default function PageApercuEtatLieux() {
   return (
@@ -35,6 +36,8 @@ function Contenu() {
   const [erreur, setErreur] = useState('')
   const [validation, setValidation] = useState(false)
   const [confirmation, setConfirmation] = useState(false)
+  const [parametres, setParametres] = useState(null)
+  const [telechargement, setTelechargement] = useState(false)
 
   const typeValide = type === 'entree' || type === 'sortie'
 
@@ -72,7 +75,30 @@ function Contenu() {
       return
     }
     setEtatLieux(el)
+
+    // Charger les paramètres bailleur (pour le PDF)
+    const { data: params } = await supabase
+      .from('parametres')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+    setParametres(params || {})
+
     setLoading(false)
+  }
+
+  async function handleTelechargerPDF() {
+    setTelechargement(true)
+    try {
+      const doc = await genererEtatLieuxPDF({ contrat, etatLieux, parametres })
+      const nomFichier = `etat-lieux-${type}-${contrat.appartement?.nom || 'contrat'}-${etatLieux.date_realisation}.pdf`
+      doc.save(nomFichier)
+    } catch (err) {
+      alert('Erreur lors de la génération du PDF : ' + (err?.message || 'inconnue'))
+      console.error(err)
+    } finally {
+      setTelechargement(false)
+    }
   }
 
   async function handleValider() {
@@ -268,18 +294,28 @@ function Contenu() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => router.back()}
-            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
+            className="flex-1 min-w-[120px] px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
           >
             ← Retour
           </button>
+          {/* Bouton PDF visible dès que l'état est signé (par le locataire ou validé) */}
+          {(etatLieux.statut === 'signe_locataire' || etatLieux.statut === 'valide_bailleur') && (
+            <button
+              onClick={handleTelechargerPDF}
+              disabled={telechargement}
+              className="flex-1 min-w-[150px] px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-md disabled:opacity-50"
+            >
+              {telechargement ? '⏳ Génération...' : '📄 Télécharger PDF'}
+            </button>
+          )}
           {peutValider && (
             <button
               onClick={handleValider}
               disabled={validation}
-              className={`flex-1 px-4 py-3 bg-${couleurAccent}-600 hover:bg-${couleurAccent}-700 text-white rounded-xl font-semibold shadow-md disabled:opacity-50`}
+              className={`flex-1 min-w-[180px] px-4 py-3 bg-${couleurAccent}-600 hover:bg-${couleurAccent}-700 text-white rounded-xl font-semibold shadow-md disabled:opacity-50`}
             >
               {validation ? '⏳ Validation...' : '✅ Valider l\'état des lieux'}
             </button>
