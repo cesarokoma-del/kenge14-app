@@ -363,7 +363,7 @@ useEffect(() => {
       .from('renouvellements')
       .select('*')
       .eq('contrat_id', contrat.id)
-      .eq('statut', 'signe')
+      .eq('statut', 'traite')
       .order('date_signature', { ascending: false })
       .limit(1)
 
