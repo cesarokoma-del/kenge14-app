@@ -20,6 +20,14 @@ export default function DepenseGerant() {
   const [description, setDescription] = useState('')
   const [appartementId, setAppartementId] = useState('')
   const [notes, setNotes] = useState('')
+  const [devise, setDevise] = useState('USD')
+  const [montantCdf, setMontantCdf] = useState('')
+  const [taux, setTaux] = useState('')
+
+  // Calcul USD si devise CDF (live, sans setState)
+  const montantUsdCalcule = devise === 'CDF' && montantCdf && taux && parseFloat(taux) > 0
+    ? (parseFloat(montantCdf) / parseFloat(taux)).toFixed(2)
+    : null
 
   useEffect(() => {
     async function charger() {
@@ -39,9 +47,20 @@ export default function DepenseGerant() {
     e.preventDefault()
     setErreur('')
 
-    if (!montant || parseFloat(montant) <= 0) {
-      setErreur('Le montant doit être supérieur à 0.')
-      return
+    if (devise === 'USD') {
+      if (!montant || parseFloat(montant) <= 0) {
+        setErreur('Le montant doit être supérieur à 0.')
+        return
+      }
+    } else {
+      if (!montantCdf || parseFloat(montantCdf) <= 0) {
+        setErreur('Le montant en CDF doit être supérieur à 0.')
+        return
+      }
+      if (!taux || parseFloat(taux) <= 0) {
+        setErreur('Le taux du jour est obligatoire.')
+        return
+      }
     }
     if (!description.trim()) {
       setErreur('La description est obligatoire.')
@@ -58,13 +77,20 @@ export default function DepenseGerant() {
       ? `${description.trim()} | Notes : ${notes.trim()}`
       : description.trim()
 
+    const montantUsdFinal = devise === 'USD'
+      ? parseFloat(montant)
+      : parseFloat(montantCdf) / parseFloat(taux)
+
     const { error } = await supabase.from('depenses').insert({
       categorie: categorie,
-      montant: parseFloat(montant),
+      montant: montantUsdFinal,
       date_depense: dateDepense,
       description: descriptionComplete,
       appartement_id: appartementId || null,
-      enregistre_par: profil?.id || null
+      enregistre_par: profil?.id || null,
+      devise: devise,
+      montant_devise_origine: devise === 'CDF' ? parseFloat(montantCdf) : null,
+      taux_change: devise === 'CDF' ? parseFloat(taux) : null,
     })
 
     setLoading(false)
@@ -82,6 +108,9 @@ export default function DepenseGerant() {
     setDescription('')
     setAppartementId('')
     setNotes('')
+    setDevise('USD')
+    setMontantCdf('')
+    setTaux('')
 
     setShowSucces(true)
     setTimeout(() => setShowSucces(false), 5000)
@@ -134,36 +163,124 @@ export default function DepenseGerant() {
             </select>
           </div>
 
-          {/* Montant + Date côte à côte */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                💵 Montant (USD) *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={montant}
-                onChange={(e) => setMontant(e.target.value)}
-                placeholder="Ex: 25"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                📅 Date de la dépense *
-              </label>
-              <input
-                type="date"
-                value={dateDepense}
-                onChange={(e) => setDateDepense(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
-                required
-              />
+          {/* Toggle Devise */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              💱 Devise *
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDevise('USD')}
+                className={`flex-1 py-3 rounded-xl border-2 font-bold transition ${
+                  devise === 'USD'
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
+                }`}
+              >
+                💵 USD (Dollars)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDevise('CDF')}
+                className={`flex-1 py-3 rounded-xl border-2 font-bold transition ${
+                  devise === 'CDF'
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
+                }`}
+              >
+                🇨🇩 CDF (Francs)
+              </button>
             </div>
           </div>
+
+          {/* Montant + Taux (si CDF) + Date */}
+          {devise === 'USD' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  💵 Montant (USD) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={montant}
+                  onChange={(e) => setMontant(e.target.value)}
+                  placeholder="Ex: 25"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  📅 Date de la dépense *
+                </label>
+                <input
+                  type="date"
+                  value={dateDepense}
+                  onChange={(e) => setDateDepense(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  🇨🇩 Montant (CDF) *
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  inputMode="numeric"
+                  value={montantCdf}
+                  onChange={(e) => setMontantCdf(e.target.value)}
+                  placeholder="Ex: 8000"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    💱 Taux du jour (CDF / 1 USD) *
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    inputMode="numeric"
+                    value={taux}
+                    onChange={(e) => setTaux(e.target.value)}
+                    placeholder="Ex: 2850"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    📅 Date de la dépense *
+                  </label>
+                  <input
+                    type="date"
+                    value={dateDepense}
+                    onChange={(e) => setDateDepense(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              {montantUsdCalcule && (
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 text-center">
+                  <p className="text-xs text-gray-600">Équivalent USD calculé automatiquement :</p>
+                  <p className="text-2xl font-bold text-amber-700">≈ {montantUsdCalcule} USD</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Description */}
           <div>
@@ -227,7 +344,18 @@ export default function DepenseGerant() {
               <h3 className="text-xl font-bold text-gray-800 mb-4">⚠️ Confirmer la dépense</h3>
               <div className="bg-amber-50 rounded-xl p-4 mb-5 space-y-2 text-sm">
                 <p><strong>Catégorie :</strong> {categorie}</p>
-                <p><strong>Montant :</strong> <span className="text-amber-700 font-bold text-lg">{montant} USD</span></p>
+                <p><strong>Montant :</strong>{' '}
+                  {devise === 'USD' ? (
+                    <span className="text-amber-700 font-bold text-lg">{montant} USD</span>
+                  ) : (
+                    <span className="text-amber-700 font-bold text-lg">
+                      {parseInt(montantCdf).toLocaleString('fr-FR')} CDF
+                      <span className="text-sm font-normal text-gray-600 ml-2">
+                        (≈ {montantUsdCalcule} USD au taux {taux})
+                      </span>
+                    </span>
+                  )}
+                </p>
                 <p><strong>Date :</strong> {formatDateFR(dateDepense)}</p>
                 <p><strong>Description :</strong> {description}</p>
                 {appartementId && (

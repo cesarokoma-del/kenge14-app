@@ -24,7 +24,10 @@ export default function Depenses() {
     montant: '',
     date_depense: new Date().toISOString().split('T')[0],
     description: '',
-    facture_url: ''
+    facture_url: '',
+    devise: 'USD',
+    montant_devise_origine: '',
+    taux_change: ''
   })
 
   useEffect(() => {
@@ -77,13 +80,24 @@ export default function Depenses() {
   async function handleSubmit(e) {
     e.preventDefault()
 
+    // Calcul montant USD selon devise (approvisionnement_gerant force USD)
+    const forceUSD = formData.categorie === 'approvisionnement_gerant'
+    const deviseEffective = forceUSD ? 'USD' : formData.devise
+
+    const montantUsd = deviseEffective === 'USD'
+      ? parseFloat(formData.montant)
+      : parseFloat(formData.montant_devise_origine) / parseFloat(formData.taux_change)
+
     const dataToSave = {
       appartement_id: formData.appartement_id || null,
       categorie: formData.categorie,
-      montant: parseFloat(formData.montant),
+      montant: montantUsd,
       date_depense: formData.date_depense,
       description: formData.description || null,
-      facture_url: formData.facture_url || null
+      facture_url: formData.facture_url || null,
+      devise: deviseEffective,
+      montant_devise_origine: deviseEffective === 'CDF' ? parseFloat(formData.montant_devise_origine) : null,
+      taux_change: deviseEffective === 'CDF' ? parseFloat(formData.taux_change) : null
     }
 
     if (editingId) {
@@ -118,7 +132,10 @@ export default function Depenses() {
       montant: depense.montant || '',
       date_depense: depense.date_depense || '',
       description: depense.description || '',
-      facture_url: depense.facture_url || ''
+      facture_url: depense.facture_url || '',
+      devise: depense.devise || 'USD',
+      montant_devise_origine: depense.montant_devise_origine || '',
+      taux_change: depense.taux_change || ''
     })
     setEditingId(depense.id)
     setShowForm(true)
@@ -147,7 +164,10 @@ export default function Depenses() {
       montant: '',
       date_depense: new Date().toISOString().split('T')[0],
       description: '',
-      facture_url: ''
+      facture_url: '',
+      devise: 'USD',
+      montant_devise_origine: '',
+      taux_change: ''
     })
     setEditingId(null)
     setShowForm(false)
@@ -169,7 +189,10 @@ export default function Depenses() {
       montant: '',
       date_depense: aujourdhui.toISOString().split('T')[0],
       description: `Approvisionnement ${moisCourant} ${anneeCourante}`,
-      facture_url: ''
+      facture_url: '',
+      devise: 'USD',
+      montant_devise_origine: '',
+      taux_change: ''
     })
     setEditingId(null)
     setShowForm(true)
@@ -324,10 +347,74 @@ export default function Depenses() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">💰 Montant (USD) *</label>
-              <input type="number" step="0.01" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
-            </div>
+            {/* Devise (cachée si approvisionnement_gerant — toujours USD) */}
+            {formData.categorie !== 'approvisionnement_gerant' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">💱 Devise</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, devise: 'USD' })}
+                    className={`flex-1 py-2 rounded-lg border-2 font-semibold transition ${
+                      formData.devise === 'USD'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    💵 USD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, devise: 'CDF' })}
+                    className={`flex-1 py-2 rounded-lg border-2 font-semibold transition ${
+                      formData.devise === 'CDF'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    🇨🇩 CDF
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {formData.categorie === 'approvisionnement_gerant' || formData.devise === 'USD' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">💰 Montant (USD) *</label>
+                <input type="number" step="0.01" required value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">🇨🇩 Montant (CDF) *</label>
+                  <input
+                    type="number" step="1" min="1" inputMode="numeric" required
+                    value={formData.montant_devise_origine}
+                    onChange={(e) => setFormData({ ...formData, montant_devise_origine: e.target.value })}
+                    placeholder="Ex: 8000"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">💱 Taux (CDF / 1 USD) *</label>
+                  <input
+                    type="number" step="1" min="1" inputMode="numeric" required
+                    value={formData.taux_change}
+                    onChange={(e) => setFormData({ ...formData, taux_change: e.target.value })}
+                    placeholder="Ex: 2850"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                {formData.montant_devise_origine && formData.taux_change && parseFloat(formData.taux_change) > 0 && (
+                  <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center text-sm">
+                    <span className="text-gray-700">Équivalent USD : </span>
+                    <span className="font-bold text-amber-700">
+                      ≈ {(parseFloat(formData.montant_devise_origine) / parseFloat(formData.taux_change)).toFixed(2)} USD
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date *</label>
@@ -406,7 +493,18 @@ export default function Depenses() {
                         </span>
                       )}
                     </td>
-                    <td className={`py-3 px-2 text-right font-bold ${estApprovisionnement ? 'text-amber-700' : 'text-red-700'}`}>-{parseFloat(d.montant).toFixed(0)} USD</td>
+                    <td className={`py-3 px-2 text-right font-bold ${estApprovisionnement ? 'text-amber-700' : 'text-red-700'}`}>
+                      {d.devise === 'CDF' && d.montant_devise_origine ? (
+                        <>
+                          <div>-{parseInt(d.montant_devise_origine).toLocaleString('fr-FR')} CDF</div>
+                          <div className="text-xs text-gray-500 font-normal">
+                            ≈ {parseFloat(d.montant).toFixed(2)} USD
+                          </div>
+                        </>
+                      ) : (
+                        `-${parseFloat(d.montant).toFixed(0)} USD`
+                      )}
+                    </td>
                     <td className="py-3 px-2 text-right">
                       <button onClick={() => handleEdit(d)} className="text-blue-600 hover:underline text-sm mr-2">✏️</button>
                       <button onClick={() => handleDelete(d.id)} className="text-red-600 hover:underline text-sm">🗑️</button>
