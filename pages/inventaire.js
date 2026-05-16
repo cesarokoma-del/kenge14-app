@@ -8,6 +8,7 @@ import Layout from '../components/Layout'
 import RouteGuard from '../components/RouteGuard'
 import { listerStockActuel, CATEGORIES_INVENTAIRE, getInfoCategorie } from '../lib/inventaire'
 import Link from 'next/link'
+import { genererInventairePDF } from '../lib/genererInventairePDF'
 import PanneauNouvelleEntree from '../components/PanneauNouvelleEntree'
 
 export default function PageInventaire() {
@@ -28,6 +29,7 @@ function Contenu() {
   const [recherche, setRecherche] = useState('')
   const [categorieFiltre, setCategorieFiltre] = useState('')
   const [stockBasUniquement, setStockBasUniquement] = useState(false)
+  const [genererPdf, setGenererPdf] = useState(false)
 
 // Pré-active le filtre "stock bas" si URL contient ?stockBas=1
 useEffect(() => {
@@ -56,6 +58,15 @@ useEffect(() => {
     }
     setLoading(false)
   }
+
+  async function exporterPDF() {
+  setGenererPdf(true)
+  const { success, error } = await genererInventairePDF()
+  setGenererPdf(false)
+  if (!success) {
+    alert(`Erreur génération PDF : ${error || 'inconnue'}`)
+  }
+}
 
   // Filtrer en local pour "stock bas" (la vue ne le fait pas directement)
   const itemsFiltres = useMemo(() => {
@@ -88,12 +99,22 @@ useEffect(() => {
               )}
             </p>
           </div>
-          <button
-            onClick={() => router.push('/inventaire/nouveau')}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm"
-          >
-            + Nouvel item
-          </button>
+          <div className="flex gap-2">
+              <button
+                onClick={exporterPDF}
+                disabled={genererPdf || items.length === 0}
+                className="px-4 py-2.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {genererPdf ? '⏳ Génération...' : '📄 Exporter PDF'}
+              </button>
+              <button
+                onClick={() => router.push('/inventaire/nouveau')}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold transition-colors"
+              >
+                + Nouvel item
+              </button>
+            </div>
+          
         </div>
 
         {/* Filtres */}
