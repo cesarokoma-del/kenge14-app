@@ -11,6 +11,8 @@ export default function Depenses() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [filterCategorie, setFilterCategorie] = useState('toutes')
+  const [depensesGerant, setDepensesGerant] = useState([])
+  const [showDepensesGerant, setShowDepensesGerant] = useState(false)
   const [soldeGerant, setSoldeGerant] = useState({
     totalApprovisionne: 0,
     totalDepense: 0,
@@ -48,10 +50,13 @@ export default function Depenses() {
       .select('id')
       .eq('role', 'gerant')
 
-    const idsGerants = (gerantsData || []).map(g => g.id)  
+    const idsGerants = (gerantsData || []).map(g => g.id)
 
     // 🔒 Exclure les dépenses saisies par un gérant (visibles uniquement via /gerant/mon-solde)
     const depensesData = (depensesRaw || []).filter(d => !idsGerants.includes(d.enregistre_par))
+
+    // 👤 Charger séparément les dépenses du gérant (pour la section collapsible)
+    const depensesGerantData = (depensesRaw || []).filter(d => idsGerants.includes(d.enregistre_par))
 
     const { data: apptsData } = await supabase
       .from('appartements')
@@ -63,7 +68,13 @@ export default function Depenses() {
       appartement: apptsData?.find(a => a.id === d.appartement_id) || null
     }))
 
+    const depensesGerantEnrichies = (depensesGerantData || []).map(d => ({
+      ...d,
+      appartement: apptsData?.find(a => a.id === d.appartement_id) || null
+    }))
+
     setDepenses(depensesEnrichies)
+    setDepensesGerant(depensesGerantEnrichies)
     setAppartements(apptsData || [])
 
     // 💰 Solde Compte Gérant via le helper getSoldeGerant()
@@ -516,6 +527,72 @@ export default function Depenses() {
           </div>
         )}
       </div>
+
+      {/* 👤 Section collapsible : Dépenses du Gérant */}
+      {depensesGerant.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg border border-orange-200 mt-6 overflow-hidden">
+          <button
+            onClick={() => setShowDepensesGerant(!showDepensesGerant)}
+            className="w-full px-6 py-4 flex justify-between items-center hover:bg-orange-50 transition"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">👤</span>
+              <div className="text-left">
+                <h2 className="text-xl font-bold text-gray-800">
+                  Dépenses du Gérant ({depensesGerant.length})
+                </h2>
+                <p className="text-sm text-orange-700 font-semibold">
+                  Total : {depensesGerant.reduce((sum, d) => sum + parseFloat(d.montant || 0), 0).toFixed(2)} USD
+                </p>
+              </div>
+            </div>
+            <span className={`text-2xl text-gray-400 transition-transform ${showDepensesGerant ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
+          </button>
+
+          {showDepensesGerant && (
+            <div className="px-6 pb-6 border-t border-orange-100">
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-sm">
+                  <thead className="bg-orange-50 border-b border-orange-200">
+                    <tr>
+                      <th className="text-left py-3 px-2">Date</th>
+                      <th className="text-left py-3 px-2">Catégorie</th>
+                      <th className="text-left py-3 px-2">Apt</th>
+                      <th className="text-left py-3 px-2">Description</th>
+                      <th className="text-right py-3 px-2">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depensesGerant.map((d) => (
+                      <tr key={d.id} className="border-b hover:bg-orange-50">
+                        <td className="py-3 px-2">{formatDateFR(d.date_depense)}</td>
+                        <td className="py-3 px-2">{getCategorieLabel(d.categorie)}</td>
+                        <td className="py-3 px-2">{d.appartement?.nom || '—'}</td>
+                        <td className="py-3 px-2 text-gray-600 max-w-xs truncate">{d.description || '—'}</td>
+                        <td className="py-3 px-2 text-right font-bold text-orange-700">
+                          {d.devise === 'CDF' && d.montant_devise_origine ? (
+                            <>
+                              <div>-{parseInt(d.montant_devise_origine).toLocaleString('fr-FR')} CDF</div>
+                              <div className="text-xs text-gray-500 font-normal">
+                                ≈ {parseFloat(d.montant).toFixed(2)} USD
+                              </div>
+                            </>
+                          ) : (
+                            `-${parseFloat(d.montant).toFixed(0)} USD`
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </Layout>
   )
 }
