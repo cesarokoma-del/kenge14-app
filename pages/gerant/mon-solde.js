@@ -164,8 +164,17 @@ export default function MonSolde() {
                   <td className="py-3 px-2">{d.categorie}</td>
                   <td className="py-3 px-2">{d.description || '—'}</td>
                   <td className="py-3 px-2 text-right font-bold text-orange-700">
-                    -{parseFloat(d.montant).toFixed(0)} USD
-                  </td>
+                  {d.devise === 'CDF' && d.montant_devise_origine ? (
+                    <>
+                      <div>-{parseInt(d.montant_devise_origine).toLocaleString('fr-FR')} CDF</div>
+                      <div className="text-xs text-gray-500 font-normal">
+                        ≈ {parseFloat(d.montant).toFixed(2)} USD
+                      </div>
+                    </>
+                  ) : (
+                    `-${parseFloat(d.montant).toFixed(0)} USD`
+                  )}
+                </td>
                 </tr>
               ))}
             </tbody>
