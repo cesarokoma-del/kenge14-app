@@ -16,9 +16,20 @@ import { verifierAcces } from '../lib/supabase'
  *  - Pas autorisé → redirige vers /acces-refuse
  *  - Autorisé → affiche les enfants
  */
+// Cache en memoire des acces deja verifies (survit aux navigations, pas au rechargement)
+const accesVerifies = new Set()
+
+// A appeler a la deconnexion pour repartir de zero
+export function viderCacheAcces() {
+  accesVerifies.clear()
+}
+
 export default function RouteGuard({ rolesAutorises = [], children }) {
   const router = useRouter()
-  const [etat, setEtat] = useState('verification') // 'verification' | 'autorise' | 'redirection'
+    const cle = rolesAutorises.join(',')
+  const [etat, setEtat] = useState(() =>
+    typeof window !== 'undefined' && accesVerifies.has(cle) ? 'autorise' : 'verification'
+  )
 
   useEffect(() => {
     let actif = true // évite setState sur composant démonté
@@ -29,10 +40,12 @@ export default function RouteGuard({ rolesAutorises = [], children }) {
       // Composant démonté entre temps → on arrête tout
       if (!actif) return
 
-      if (acces.autorise) {
+            if (acces.autorise) {
+        accesVerifies.add(cle)
         setEtat('autorise')
         return
       }
+      accesVerifies.delete(cle)
 
       // Pas autorisé → on redirige
       setEtat('redirection')

@@ -4,20 +4,29 @@ import Sidebar from './Sidebar'
 import { signOut, getSession, getProfilUtilisateur } from '../lib/supabase'
 import LayoutGerant from './LayoutGerant'
 
+// Cache du role en memoire : survit aux navigations, pas au rechargement complet.
+// Evite l'ecran vide a chaque changement de page.
+let roleEnCache = null
+
 export default function Layout({ children, activePage }) {
   const router = useRouter()
 
   // 🎯 TOUS les hooks doivent être déclarés AVANT tout return (règle React)
-  const [roleVerifie, setRoleVerifie] = useState(false)
-  const [estGerant, setEstGerant] = useState(false)
+    const [roleVerifie, setRoleVerifie] = useState(
+    () => typeof window !== 'undefined' && roleEnCache !== null
+  )
+  const [estGerant, setEstGerant] = useState(
+    () => typeof window !== 'undefined' && roleEnCache === 'gerant'
+  )
   const [emailUtilisateur, setEmailUtilisateur] = useState('')
   const [deconnexionEnCours, setDeconnexionEnCours] = useState(false)
   const [menuMobileOuvert, setMenuMobileOuvert] = useState(false)
 
-  // useEffect 1 : détecter le rôle
+      // useEffect 1 : détecter le rôle (reverifie en arriere-plan a chaque fois)
   useEffect(() => {
     async function detecterRole() {
       const { role } = await getProfilUtilisateur()
+      roleEnCache = role || 'bailleur'
       setEstGerant(role === 'gerant')
       setRoleVerifie(true)
     }
