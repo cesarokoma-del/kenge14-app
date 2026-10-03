@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Sidebar from './Sidebar'
-import { signOut, getSession, getProfilUtilisateur, getLocatairesEnRetard, getDemandesEnAttente } from '../lib/supabase'
+import { signOut, getSession, getProfilUtilisateur, getLocatairesEnRetard, getDemandesEnAttente, getComptesEpargne } from '../lib/supabase'
 import LayoutGerant from './LayoutGerant'
 import { viderCacheAcces } from './RouteGuard'
 
@@ -9,6 +9,7 @@ import { viderCacheAcces } from './RouteGuard'
 // Evite l'ecran vide a chaque changement de page.
 let roleEnCache = null
 let compteursEnCache = {}
+let comptesEnCache = []
 
 export default function Layout({ children, activePage }) {
   const router = useRouter()
@@ -25,6 +26,9 @@ export default function Layout({ children, activePage }) {
   const [menuMobileOuvert, setMenuMobileOuvert] = useState(false)
   const [compteurs, setCompteurs] = useState(
     () => (typeof window !== 'undefined' ? compteursEnCache : {})
+  )
+  const [comptesEpargne, setComptesEpargne] = useState(
+    () => (typeof window !== 'undefined' ? comptesEnCache : [])
   )
 
       // useEffect 1 : détecter le rôle (reverifie en arriere-plan a chaque fois)
@@ -58,6 +62,9 @@ export default function Layout({ children, activePage }) {
       ])
       compteursEnCache = { paiements: (retards || []).length, demandes: nbDemandes || 0 }
       setCompteurs(compteursEnCache)
+      const { data: comptes } = await getComptesEpargne()
+      comptesEnCache = comptes || []
+      setComptesEpargne(comptesEnCache)
     }
     chargerCompteurs()
   }, [])
@@ -83,6 +90,12 @@ export default function Layout({ children, activePage }) {
   if (estGerant) {
     return <LayoutGerant activePage={activePage}>{children}</LayoutGerant>
   }
+    const sousMenus = {
+    comptes: [
+      { id: 'compte-general', label: 'Compte général', path: '/comptes' },
+      ...comptesEpargne.map(c => ({ id: `compte-${c.id}`, label: c.nom, path: `/comptes?compte=${c.id}` })),
+    ],
+  }
 
     return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -91,6 +104,7 @@ export default function Layout({ children, activePage }) {
         ouvertMobile={menuMobileOuvert}
         onFermerMobile={() => setMenuMobileOuvert(false)}
         compteurs={compteurs}
+        sousMenus={sousMenus}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">

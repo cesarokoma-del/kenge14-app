@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 
 // Icones au trait (SVG inline). Cle = nom utilisable dans `icon`.
 const ICONES = {
@@ -48,7 +49,8 @@ const GROUPES_BAILLEUR = [
     titre: 'Finances',
     items: [
       { id: 'paiements', label: 'Paiements', icon: 'coins', path: '/paiements' },
-      { id: 'depenses', label: 'Dépenses', icon: 'chart', path: '/depenses' },
+      { id: 'depenses', label: 'Dépenses', icon: 'chart', path: '/depenses' },            
+      { id: 'comptes', label: 'Comptes', icon: 'bank', path: '/comptes', enfants: [] },
     ],
   },
   {
@@ -87,8 +89,20 @@ export default function Sidebar({
   sousTitre = 'Gestion Locative - Congo',
   badge = null,
   compteurs = {},
+  sousMenus = {},
+
 }) {
   const t = THEMES[theme] || THEMES.vert
+
+  const router = useRouter()
+  const [deplies, setDeplies] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kenge14-sidebar-deplies') || '{}') } catch { return {} }
+  })
+  function basculerSousMenu(id) {
+    const n = { ...deplies, [id]: !deplies[id] }
+    setDeplies(n)
+    try { localStorage.setItem('kenge14-sidebar-deplies', JSON.stringify(n)) } catch {}
+  }
 
   const [repliee, setRepliee] = useState(() => {
     try {
@@ -150,31 +164,54 @@ export default function Sidebar({
                 <div className="text-[11px] font-bold text-gray-400 px-5 pt-2 pb-1">{groupe.titre}</div>
               )}
               {groupe.items.map((item) => {
-                const actif = activePage === item.id
+                const enfants = sousMenus[item.id] ?? item.enfants
+                const aEnfants = Array.isArray(enfants) && enfants.length > 0
+                const enfantActif = aEnfants && enfants.some(e => router.asPath === e.path)
+                const actif = activePage === item.id && !enfantActif
+                const ouvert = aEnfants && !repliee && (deplies[item.id] ?? activePage === item.id)
+                const classes = `
+                  relative flex items-center gap-3 mx-2 my-0.5 rounded-lg text-sm font-medium transition
+                  ${repliee ? 'justify-center px-0 py-3' : 'px-3 py-2.5'}
+                  ${actif || (enfantActif && repliee) ? `${t.actif} font-bold` : `text-gray-600 ${t.hover}`}
+                `
                 return (
-                  <Link
-                    key={item.id}
-                    href={item.path}
-                    title={repliee ? item.label : undefined}
-                    onClick={onFermerMobile}
-                    className={`
-                      relative flex items-center gap-3 mx-2 my-0.5 rounded-lg text-sm font-medium transition
-                      ${repliee ? 'justify-center px-0 py-3' : 'px-3 py-2.5'}
-                      ${actif ? `${t.actif} font-bold` : `text-gray-600 ${t.hover}`}
-                    `}
-                  >
-                    <Icone nom={item.icon} />
-                    {!repliee && <span className="flex-1">{item.label}</span>}
-                    {compteurs[item.id] > 0 && (
-                      <span className={`
-                        text-[11px] font-bold text-white rounded-full px-2 py-0.5 min-w-[20px] text-center
-                        ${item.id === 'demandes' ? 'bg-blue-600' : 'bg-red-600'}
-                        ${repliee ? 'absolute top-1 right-1' : ''}
-                      `}>
-                        {compteurs[item.id]}
-                      </span>
+                  <div key={item.id}>
+                    {aEnfants && !repliee ? (
+                      <button type="button" onClick={() => basculerSousMenu(item.id)} className={`w-[calc(100%-1rem)] text-left ${classes}`}>
+                        <Icone nom={item.icon} />
+                        <span className="flex-1">{item.label}</span>
+                        <span className={`text-xs transition-transform ${ouvert ? 'rotate-90' : ''}`}>›</span>
+                      </button>
+                    ) : (
+                      <Link href={item.path} title={repliee ? item.label : undefined} onClick={onFermerMobile} className={classes}>
+                        <Icone nom={item.icon} />
+                        {!repliee && <span className="flex-1">{item.label}</span>}
+                        {compteurs[item.id] > 0 && (
+                          <span className={`
+                            text-[11px] font-bold text-white rounded-full px-2 py-0.5 min-w-[20px] text-center
+                            ${item.id === 'demandes' ? 'bg-blue-600' : 'bg-red-600'}
+                            ${repliee ? 'absolute top-1 right-1' : ''}
+                          `}>
+                            {compteurs[item.id]}
+                          </span>
+                        )}
+                      </Link>
                     )}
-                  </Link>
+                    {ouvert && (
+                      <div className="ml-9 mr-2 mb-1">
+                        {enfants.map((e) => {
+                          const eActif = router.asPath === e.path
+                          return (
+                            <Link key={e.id} href={e.path} onClick={onFermerMobile}
+                              className={`block px-3 py-1.5 my-0.5 rounded-md text-[13px] transition
+                                ${eActif ? `${t.actif} font-bold` : `text-gray-600 ${t.hover}`}`}>
+                              {e.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
