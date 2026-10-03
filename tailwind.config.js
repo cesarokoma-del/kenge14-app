@@ -6,6 +6,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+            fontFamily: {
+        sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+      },
       colors: {
         emerald: {
           50: '#ecfdf5',

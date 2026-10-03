@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Sidebar from './Sidebar'
-import { signOut, getSession, getProfilUtilisateur } from '../lib/supabase'
+import { signOut, getSession, getProfilUtilisateur, getLocatairesEnRetard, getDemandesEnAttente } from '../lib/supabase'
 import LayoutGerant from './LayoutGerant'
 
 // Cache du role en memoire : survit aux navigations, pas au rechargement complet.
 // Evite l'ecran vide a chaque changement de page.
 let roleEnCache = null
+let compteursEnCache = {}
 
 export default function Layout({ children, activePage }) {
   const router = useRouter()
@@ -21,6 +22,9 @@ export default function Layout({ children, activePage }) {
   const [emailUtilisateur, setEmailUtilisateur] = useState('')
   const [deconnexionEnCours, setDeconnexionEnCours] = useState(false)
   const [menuMobileOuvert, setMenuMobileOuvert] = useState(false)
+  const [compteurs, setCompteurs] = useState(
+    () => (typeof window !== 'undefined' ? compteursEnCache : {})
+  )
 
       // useEffect 1 : détecter le rôle (reverifie en arriere-plan a chaque fois)
   useEffect(() => {
@@ -42,6 +46,19 @@ export default function Layout({ children, activePage }) {
       }
     }
     chargerEmail()
+  }, [])
+
+    // useEffect 3 : compteurs pour les pastilles de la sidebar
+  useEffect(() => {
+    async function chargerCompteurs() {
+      const [{ data: retards }, { count: nbDemandes }] = await Promise.all([
+        getLocatairesEnRetard(),
+        getDemandesEnAttente(),
+      ])
+      compteursEnCache = { paiements: (retards || []).length, demandes: nbDemandes || 0 }
+      setCompteurs(compteursEnCache)
+    }
+    chargerCompteurs()
   }, [])
 
   async function handleDeconnexion() {
@@ -69,6 +86,7 @@ export default function Layout({ children, activePage }) {
         activePage={activePage}
         ouvertMobile={menuMobileOuvert}
         onFermerMobile={() => setMenuMobileOuvert(false)}
+        compteurs={compteurs}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
