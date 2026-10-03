@@ -10,6 +10,8 @@ import {
   calculerSoldeBancaire,
 } from '../lib/supabase'
 import { formatDateFR } from '../lib/dateUtils'
+import { useRouter } from 'next/router'
+
 
 const LIBELLES_TYPE = {
   depot: 'Dépôt',
@@ -20,10 +22,10 @@ const LIBELLES_TYPE = {
 const aujourdhui = () => new Date().toISOString().slice(0, 10)
 
 export default function Epargne() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [comptes, setComptes] = useState([])
-  const [soldeNet, setSoldeNet] = useState(0)
-  const [totalEnEpargne, setTotalEnEpargne] = useState(0)
+  const [treso, setTreso] = useState({ soldeBrut: 0, totalGaranties: 0, soldeNet: 0, totalEnEpargne: 0 })
 
   // Historique ouvert par compte : { [compteId]: mouvements[] }
   const [historiques, setHistoriques] = useState({})
@@ -35,13 +37,19 @@ export default function Epargne() {
   const [erreur, setErreur] = useState('')
 
   useEffect(() => { charger() }, [])
+    useEffect(() => {
+    if (loading) return
+    const id = router.query.compte
+    const cible = id ? `compte-${id}` : 'compte-general'
+    if (id && !histoOuvert[id]) basculerHistorique(id)
+    setTimeout(() => document.getElementById(cible)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }, [router.query.compte, loading])
 
   async function charger() {
     setLoading(true)
     const [{ data: c }, treso] = await Promise.all([getComptesEpargne(), calculerSoldeBancaire()])
     setComptes(c || [])
-    setSoldeNet(treso.soldeNet || 0)
-    setTotalEnEpargne(treso.totalEnEpargne || 0)
+    setTreso(treso)
     // Rafraîchir les historiques déjà ouverts
     const ouverts = Object.keys(histoOuvert).filter(id => histoOuvert[id])
     for (const id of ouverts) await chargerHistorique(id)
@@ -118,15 +126,23 @@ export default function Epargne() {
           </div>
         </div>
 
-        {/* Bandeau trésorerie */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-          <div className="rounded-xl border bg-white border-gray-200 px-4 py-3">
-            <div className="text-[13px] text-gray-600">Solde net disponible (banque principale)</div>
-            <div className={`text-[26px] font-extrabold mt-0.5 ${soldeNet < 0 ? 'text-red-700' : 'text-blue-700'}`}>{usd(soldeNet)}</div>
-          </div>
-          <div className="rounded-xl border bg-white border-gray-200 px-4 py-3">
-            <div className="text-[13px] text-gray-600">Total en épargne (les 2 comptes)</div>
-            <div className="text-[26px] font-extrabold mt-0.5 text-emerald-700">{usd(totalEnEpargne)}</div>
+                
+        {/* Compte général (banque principale) */}
+        <div id="compte-general" className="rounded-xl border bg-white border-gray-200 mb-6 scroll-mt-20">
+          <div className="px-5 py-3 border-b border-gray-100 text-lg font-extrabold text-gray-800">Compte général</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+            {[
+              ['Solde brut', treso.soldeBrut, treso.soldeBrut < 0 ? 'text-red-700' : 'text-emerald-700', 'total en banque'],
+              ['Garanties', treso.totalGaranties, 'text-amber-700', 'à restituer'],
+              ['Solde net', treso.soldeNet, treso.soldeNet < 0 ? 'text-red-700' : 'text-blue-700', 'réellement disponible'],
+              ['En épargne', treso.totalEnEpargne, 'text-emerald-700', 'Benaiah + Bryan'],
+            ].map(([label, v, couleur, sous]) => (
+              <div key={label}>
+                <div className="text-[13px] text-gray-600">{label}</div>
+                <div className={`text-[24px] font-extrabold leading-tight ${couleur}`}>{usd(v)}</div>
+                <div className="text-xs text-gray-500">{sous}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -136,7 +152,7 @@ export default function Epargne() {
             const ferme = c.statut === 'ferme'
             const histo = historiques[c.id] || []
             return (
-              <div key={c.id} className={`rounded-xl border bg-white ${ferme ? 'border-gray-300 opacity-80' : 'border-gray-200'}`}>
+              <div key={c.id} id={`compte-${c.id}`} className={`rounded-xl border bg-white scroll-mt-20 ${ferme ? 'border-gray-300 opacity-80' : 'border-gray-200'}`}>
                 {/* En-tête compte */}
                 <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between">
                   <div>
