@@ -156,201 +156,168 @@ async function chargerStockBas() {
     setLoading(false)
   }
 
+    // ─── Petits composants de presentation (plats, sans emoji) ───
+  const Tuile = ({ label, valeur, sous, couleur = 'vert' }) => {
+    const c = {
+      vert:  'bg-emerald-50 border-emerald-200 text-emerald-700',
+      bleu:  'bg-blue-50 border-blue-200 text-blue-700',
+      jaune: 'bg-amber-50 border-amber-200 text-amber-700',
+      rouge: 'bg-red-50 border-red-200 text-red-700',
+      blanc: 'bg-white border-gray-200 text-gray-800',
+    }[couleur]
+    return (
+      <div className={`rounded-xl border p-4 ${c}`}>
+        <div className="text-[13px] text-gray-600">{label}</div>
+        <div className="text-[28px] font-extrabold leading-tight mt-1">{valeur}</div>
+        {sous && <div className="text-xs text-gray-500 mt-0.5">{sous}</div>}
+      </div>
+    )
+  }
+
+  const Alerte = ({ href, nombre, titre, sous, couleur }) => {
+    const c = {
+      rouge: ['bg-red-50 border-red-200', 'bg-red-600', 'text-red-800', 'text-red-600'],
+      jaune: ['bg-amber-50 border-amber-200', 'bg-amber-500', 'text-amber-800', 'text-amber-600'],
+      orange: ['bg-orange-50 border-orange-200', 'bg-orange-500', 'text-orange-800', 'text-orange-600'],
+      bleu: ['bg-blue-50 border-blue-200', 'bg-blue-600', 'text-blue-800', 'text-blue-600'],
+    }[couleur]
+    return (
+      <Link href={href} className={`flex items-center gap-4 rounded-xl border p-4 hover:opacity-90 transition ${c[0]}`}>
+        <div className={`w-11 h-11 rounded-lg ${c[1]} text-white flex items-center justify-center text-xl font-extrabold flex-shrink-0`}>
+          {nombre}
+        </div>
+        <div>
+          <div className={`text-[15px] font-bold ${c[2]}`}>{titre}</div>
+          <div className={`text-xs ${c[3]}`}>{sous}</div>
+        </div>
+      </Link>
+    )
+  }
+
+  const nbAlertes =
+    (stats.loyersEnRetard > 0) + (stats.demandesEnAttente > 0) +
+    (stats.contratsExpirant > 0) + (itemsStockBas.length > 0)
+
   if (loading) {
     return (
       <RouteGuard rolesAutorises={['bailleur']}>
-        <Layout activePage="...">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-emerald-600 text-xl">Chargement...</div>
-        </div>
+        <Layout activePage="dashboard">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-emerald-600 text-xl">Chargement...</div>
+          </div>
         </Layout>
       </RouteGuard>
     )
   }
 
   return (
-    <Layout activePage="dashboard">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Tableau de Bord</h1>
+    <RouteGuard rolesAutorises={['bailleur']}>
+      <Layout activePage="dashboard">
+        <h1 className="text-[28px] font-extrabold text-gray-800 mb-5">Tableau de bord</h1>
 
-      {(stats.demandesEnAttente > 0 || stats.contratsExpirant > 0 || stats.loyersEnRetard > 0 || itemsStockBas.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          {stats.demandesEnAttente > 0 && (
-            <Link href="/demandes" className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded hover:bg-yellow-100 transition">
-              <p className="text-sm text-yellow-700">📝 Demandes en attente</p>
-              <p className="text-2xl font-bold text-yellow-800">{stats.demandesEnAttente}</p>
-              <p className="text-xs text-yellow-600 mt-1">Cliquez pour traiter</p>
-            </Link>
-          )}
-          {stats.contratsExpirant > 0 && (
-            <Link href="/contrats" className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded hover:bg-orange-100 transition">
-              <p className="text-sm text-orange-700">⏰ Contrats expirant (90j)</p>
-              <p className="text-2xl font-bold text-orange-800">{stats.contratsExpirant}</p>
-              <p className="text-xs text-orange-600 mt-1">Cliquez pour renouveler</p>
-            </Link>
-          )}
-          {stats.loyersEnRetard > 0 && (
-            <Link href="/paiements" className="bg-red-50 border-l-4 border-red-500 p-4 rounded hover:bg-red-100 transition">
-              <p className="text-sm text-red-700">⚠️ Loyers en retard</p>
-              <p className="text-2xl font-bold text-red-800">{stats.loyersEnRetard}</p>
-              <p className="text-xs text-red-600 mt-1">Cliquez pour relancer</p>
-            </Link>
+        {/* ── Alertes ── */}
+        {nbAlertes > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+            {stats.loyersEnRetard > 0 && (
+              <Alerte href="/paiements" nombre={stats.loyersEnRetard} titre="Loyers en retard" sous="Cliquez pour relancer" couleur="rouge" />
+            )}
+            {stats.demandesEnAttente > 0 && (
+              <Alerte href="/demandes" nombre={stats.demandesEnAttente} titre="Demandes en attente" sous="Cliquez pour traiter" couleur="bleu" />
+            )}
+            {stats.contratsExpirant > 0 && (
+              <Alerte href="/contrats" nombre={stats.contratsExpirant} titre="Contrats expirant (90 j)" sous="Cliquez pour renouveler" couleur="orange" />
             )}
             {itemsStockBas.length > 0 && (
-              <Link href="/inventaire?stockBas=1" className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded hover:bg-amber-100 transition-colors">
-                <p className="text-sm text-amber-700">📦 Stock bas</p>
-                <p className="text-2xl font-bold text-amber-800">{itemsStockBas.length}</p>
-                <p className="text-xs text-amber-600 mt-1">
-                  {itemsStockBas.length === 1 ? '1 item à réapprovisionner' : `${itemsStockBas.length} items à réapprovisionner`}
-                </p>
-              </Link>
+              <Alerte href="/inventaire?stockBas=1" nombre={itemsStockBas.length} titre="Stock bas" sous={itemsStockBas.length === 1 ? '1 item à réapprovisionner' : `${itemsStockBas.length} items à réapprovisionner`} couleur="jaune" />
             )}
           </div>
-      )}
+        )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-200">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Total Appartements</p>
-            <span className="text-2xl">🏢</span>
+        {/* ── Trésorerie ── */}
+        {tresorerie && (
+          <div className="mb-5">
+            {!tresorerie.hasSoldeInitial && (
+              <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">
+                Configurer le solde initial
+              </Link>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Tuile label="Solde brut" valeur={`${tresorerie.soldeBrut.toFixed(0)} USD`} sous="total en banque" couleur={tresorerie.soldeBrut < 0 ? 'rouge' : 'blanc'} />
+              <Tuile label="Garanties" valeur={`${tresorerie.totalGaranties.toFixed(0)} USD`} sous="à restituer aux locataires" couleur="blanc" />
+              <Tuile
+                label="Solde net"
+                valeur={`${tresorerie.soldeNet.toFixed(0)} USD`}
+                sous={tresorerie.soldeNet < 0 ? `Garanties touchées de ${Math.abs(tresorerie.soldeNet).toFixed(0)} USD` : 'réellement disponible'}
+                couleur={tresorerie.soldeNet < 0 ? 'rouge' : 'blanc'}
+              />
+            </div>
           </div>
-          <p className="text-3xl font-bold text-blue-700">{stats.totalAppartements}</p>
+        )}
+
+        {/* ── Indicateurs ── */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
+          <Tuile label="Total appartements" valeur={stats.totalAppartements} couleur="bleu" />
+          <Tuile label="Loués" valeur={stats.loues} sous={`${stats.vacants} vacant(s)`} couleur="vert" />
+          <Tuile label="Vacants" valeur={stats.vacants} sous={stats.reserves > 0 ? `+ ${stats.reserves} réservé(s)` : null} couleur="jaune" />
+          <Tuile label="Revenu attendu" valeur={`${stats.revenuMensuelAttendu.toFixed(0)} USD`} sous="par mois" couleur="vert" />
+          <Tuile label="Reçu ce mois" valeur={`${stats.revenuMensuelRecu.toFixed(0)} USD`} sous="paiements reçus" couleur="vert" />
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border border-emerald-200">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">🟢 Loués</p>
-            <span className="text-2xl">🏠</span>
+        {/* ── Demandes récentes ── */}
+        {demandesRecentes.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 mb-5">
+            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200">
+              <h2 className="text-[17px] font-bold text-gray-800">Demandes en attente</h2>
+              <Link href="/demandes" className="text-sm text-emerald-700 hover:underline">Voir tout →</Link>
+            </div>
+            {demandesRecentes.map((d) => (
+              <div key={d.id} className="flex justify-between items-center px-4 py-3 border-b border-gray-100 last:border-b-0 text-sm">
+                <div>
+                  <span className="font-semibold">{d.noms_complet}</span>
+                  <span className="text-gray-500"> · {d.appartement?.nom || '?'} · {d.telephone}</span>
+                </div>
+                <span className="text-xs text-gray-500">{formatDateFR(d.date_demande)}</span>
+              </div>
+            ))}
           </div>
-          <p className="text-3xl font-bold text-emerald-700">{stats.loues}</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.vacants} vacant(s)</p>
-        </div>
+        )}
 
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-lg p-6 border border-yellow-200">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">🟡 Vacants</p>
-            <span className="text-2xl">🔍</span>
+        {/* ── Paiements récents ── */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200">
+            <h2 className="text-[17px] font-bold text-gray-800">Paiements récents</h2>
+            <Link href="/paiements" className="text-sm text-emerald-700 hover:underline">Voir tout →</Link>
           </div>
-          <p className="text-3xl font-bold text-yellow-700">{stats.vacants}</p>
-          {stats.reserves > 0 && (
-            <p className="text-xs text-blue-600 mt-1">+ {stats.reserves} réservé(s)</p>
+          {paiementsRecents.length === 0 ? (
+            <p className="text-gray-500 text-center py-8 text-sm">Aucun paiement reçu ce mois.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-500 text-xs">
+                    <th className="text-left font-semibold px-4 py-2.5">Date</th>
+                    <th className="text-left font-semibold px-4 py-2.5">Locataire</th>
+                    <th className="text-left font-semibold px-4 py-2.5">Apt</th>
+                    <th className="text-left font-semibold px-4 py-2.5">Mois</th>
+                    <th className="text-right font-semibold px-4 py-2.5">Montant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paiementsRecents.map((p) => (
+                    <tr key={p.id} className="border-t border-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap">{formatDateFR(p.date_paiement)}</td>
+                      <td className="px-4 py-3 font-semibold">{p.contrat?.locataire?.noms_complet || 'Locataire inconnu'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{p.contrat?.appartement?.nom || '?'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{p.mois_concerne || '—'}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-700 whitespace-nowrap">{parseFloat(p.montant).toFixed(0)} USD</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border border-emerald-200">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Revenu Attendu</p>
-            <span className="text-2xl">💰</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700">{stats.revenuMensuelAttendu.toFixed(0)} USD</p>
-          <p className="text-xs text-gray-500 mt-1">Par mois</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border border-emerald-200">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Reçu ce mois</p>
-            <span className="text-2xl">✅</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700">{stats.revenuMensuelRecu.toFixed(0)} USD</p>
-          <p className="text-xs text-gray-500 mt-1">Paiements reçus</p>
-        </div>
-      </div>
-      {/* Section Trésorerie */}
-        {tresorerie && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">🏦 Trésorerie</h2>
-              {!tresorerie.hasSoldeInitial && (
-                <Link href="/parametres" className="text-sm text-amber-700 underline">
-                  ⚠️ Configurer le solde initial
-                </Link>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg p-6 border border-emerald-200">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-gray-600">💰 Solde Brut</p>
-                  <span className="text-2xl">💰</span>
-                </div>
-                <p className={`text-3xl font-bold ${tresorerie.soldeBrut < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{tresorerie.soldeBrut.toFixed(0)} USD</p>
-                <p className="text-xs text-gray-500 mt-1">Total en banque</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-lg p-6 border border-yellow-200">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-gray-600">🛡️ Garanties</p>
-                  <span className="text-2xl">🛡️</span>
-                </div>
-                <p className="text-3xl font-bold text-yellow-700">{tresorerie.totalGaranties.toFixed(0)} USD</p>
-                <p className="text-xs text-gray-500 mt-1">À restituer aux locataires</p>
-              </div>
-
-              <div className={`rounded-2xl shadow-lg p-6 border ${
-              tresorerie.soldeNet < 0
-                ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-300'
-                : 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
-            }`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">{tresorerie.soldeNet < 0 ? '🚨' : '✅'} Solde Net</p>
-                <span className="text-2xl">{tresorerie.soldeNet < 0 ? '🚨' : '✅'}</span>
-              </div>
-              <p className={`text-3xl font-bold ${tresorerie.soldeNet < 0 ? 'text-red-600' : 'text-blue-700'}`}>
-                {tresorerie.soldeNet.toFixed(0)} USD
-              </p>
-              {tresorerie.soldeNet < 0 ? (
-                <p className="text-xs text-red-700 mt-1 font-semibold">
-                  ⚠️ Garanties touchées de {Math.abs(tresorerie.soldeNet).toFixed(0)} USD
-                </p>
-              ) : (
-                <p className="text-xs text-gray-500 mt-1">Réellement disponible</p>
-              )}
-            </div>
-            </div>
-          </div>
-        )}
-
-      {demandesRecentes.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-yellow-200 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">📝 Demandes en attente</h2>
-            <Link href="/demandes" className="text-sm text-emerald-600 hover:underline">Voir tout →</Link>
-          </div>
-          <div className="space-y-2">
-            {demandesRecentes.map((d) => (
-              <div key={d.id} className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                <div>
-                  <p className="font-semibold">{d.noms_complet}</p>
-                  <p className="text-sm text-gray-600">{d.appartement?.nom || '?'} • {d.telephone}</p>
-                </div>
-                <p className="text-xs text-gray-500">{formatDateFR(d.date_demande)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">📅 Paiements Récents</h2>
-          <Link href="/paiements" className="text-sm text-emerald-600 hover:underline">Voir tout →</Link>
-        </div>
-        {paiementsRecents.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">Aucun paiement reçu ce mois.</p>
-        ) : (
-          <div className="space-y-2">
-            {paiementsRecents.map((p) => (
-              <div key={p.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                <div>
-                  <p className="font-semibold">{p.contrat?.locataire?.noms_complet || 'Locataire inconnu'}</p>
-                  <p className="text-sm text-gray-600">
-                    🏢 {p.contrat?.appartement?.nom || '?'} • {formatDateFR(p.date_paiement)}
-                  </p>
-                </div>
-                <p className="text-xl font-bold text-emerald-700">{parseFloat(p.montant).toFixed(0)} USD</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Layout>
+      </Layout>
+    </RouteGuard>
   )
 }
