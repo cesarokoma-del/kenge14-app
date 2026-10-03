@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Sidebar from './Sidebar'
 import { signOut, getSession, getProfilUtilisateur, getLocatairesEnRetard, getDemandesEnAttente } from '../lib/supabase'
 import LayoutGerant from './LayoutGerant'
+import { viderCacheAcces } from './RouteGuard'
 
 // Cache du role en memoire : survit aux navigations, pas au rechargement complet.
 // Evite l'ecran vide a chaque changement de page.
@@ -65,6 +66,9 @@ export default function Layout({ children, activePage }) {
     if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return
     
     setDeconnexionEnCours(true)
+    roleEnCache = null
+    compteursEnCache = {}
+    viderCacheAcces()
     await signOut()
     router.push('/login')
   }

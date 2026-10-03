@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { signOut, getProfilUtilisateur } from '../lib/supabase'
 import RouteGuard from './RouteGuard'
 import Sidebar from './Sidebar'
+import { viderCacheAcces } from './RouteGuard'
 
 /**
  * Layout dédié à l'Espace Gérant.
@@ -38,6 +39,7 @@ export default function LayoutGerant({ children, activePage }) {
     if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return
     
     setDeconnexionEnCours(true)
+    viderCacheAcces()
     await signOut()
     router.push('/login')
   }
@@ -47,30 +49,30 @@ export default function LayoutGerant({ children, activePage }) {
     {
       titre: null,
       items: [
-        { id: 'dashboard',    label: 'Mon Espace',   icon: '🏠', path: '/gerant/dashboard' },
-        { id: 'appartements', label: 'Appartements', icon: '🏢', path: '/gerant/appartements' },
-        { id: 'locataires',   label: 'Locataires',   icon: '👥', path: '/locataires' },
-        { id: 'demandes',     label: 'Demandes',     icon: '📋', path: '/demandes' },
+        { id: 'dashboard',    label: 'Mon Espace',   icon: 'home',      path: '/gerant/dashboard' },
+        { id: 'appartements', label: 'Appartements', icon: 'building',  path: '/gerant/appartements' },
+        { id: 'locataires',   label: 'Locataires',   icon: 'users',     path: '/locataires' },
+        { id: 'demandes',     label: 'Demandes',     icon: 'clipboard', path: '/demandes' },
       ],
     },
     {
       titre: 'Finances',
       items: [
-        { id: 'depenses',      label: 'Mes Dépenses',  icon: '💸', path: '/gerant/depense' },
-        { id: 'mon-solde',     label: 'Mon Solde',     icon: '💰', path: '/gerant/mon-solde' },
-        { id: 'paiement-cash', label: 'Paiement Cash', icon: '💵', path: '/gerant/paiement-cash' },
+        { id: 'depenses',      label: 'Mes Dépenses',  icon: 'chart',  path: '/gerant/depense' },
+        { id: 'mon-solde',     label: 'Mon Solde',     icon: 'wallet', path: '/gerant/mon-solde' },
+        { id: 'paiement-cash', label: 'Paiement Cash', icon: 'cash',   path: '/gerant/paiement-cash' },
       ],
     },
     {
       titre: 'Stock',
       items: [
-        { id: 'inventaire-sortie', label: 'Sortie Stock', icon: '📤', path: '/gerant/inventaire-sortie' },
+        { id: 'inventaire-sortie', label: 'Sortie Stock', icon: 'send', path: '/gerant/inventaire-sortie' },
       ],
     },
     {
       titre: null,
       items: [
-        { id: 'mon-profil', label: 'Mon Profil', icon: '👤', path: '/gerant/mon-profil' },
+        { id: 'mon-profil', label: 'Mon Profil', icon: 'user', path: '/gerant/mon-profil' },
       ],
     },
   ]
