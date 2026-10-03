@@ -157,18 +157,22 @@ async function chargerStockBas() {
   }
 
     // ─── Petits composants de presentation (plats, sans emoji) ───
-  const Tuile = ({ label, valeur, sous, couleur = 'vert' }) => {
-    const c = {
-      vert:  'bg-emerald-50 border-emerald-200 text-emerald-700',
-      bleu:  'bg-blue-50 border-blue-200 text-blue-700',
-      jaune: 'bg-amber-50 border-amber-200 text-amber-700',
-      rouge: 'bg-red-50 border-red-200 text-red-700',
-      blanc: 'bg-white border-gray-200 text-gray-800',
+    const Tuile = ({ label, valeur, sous, couleur = 'vert', teinte }) => {
+    const fonds = {
+      vert:  'bg-emerald-50 border-emerald-200',
+      bleu:  'bg-blue-50 border-blue-200',
+      jaune: 'bg-amber-50 border-amber-200',
+      rouge: 'bg-red-50 border-red-200',
+      blanc: 'bg-white border-gray-200',
     }[couleur]
+    const textes = {
+      vert: 'text-emerald-700', bleu: 'text-blue-700', jaune: 'text-amber-700',
+      rouge: 'text-red-700', gris: 'text-gray-800',
+    }[teinte || (couleur === 'blanc' ? 'gris' : couleur)]
     return (
-      <div className={`rounded-xl border p-4 ${c}`}>
+      <div className={`rounded-xl border px-4 py-3 ${fonds}`}>
         <div className="text-[13px] text-gray-600">{label}</div>
-        <div className="text-[28px] font-extrabold leading-tight mt-1">{valeur}</div>
+        <div className={`text-[26px] font-extrabold leading-tight mt-0.5 ${textes}`}>{valeur}</div>
         {sous && <div className="text-xs text-gray-500 mt-0.5">{sous}</div>}
       </div>
     )
@@ -215,44 +219,50 @@ async function chargerStockBas() {
       <Layout activePage="dashboard">
         <h1 className="text-[28px] font-extrabold text-gray-800 mb-5">Tableau de bord</h1>
 
-        {/* ── Alertes ── */}
-        {nbAlertes > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-            {stats.loyersEnRetard > 0 && (
-              <Alerte href="/paiements" nombre={stats.loyersEnRetard} titre="Loyers en retard" sous="Cliquez pour relancer" couleur="rouge" />
-            )}
-            {stats.demandesEnAttente > 0 && (
-              <Alerte href="/demandes" nombre={stats.demandesEnAttente} titre="Demandes en attente" sous="Cliquez pour traiter" couleur="bleu" />
-            )}
-            {stats.contratsExpirant > 0 && (
-              <Alerte href="/contrats" nombre={stats.contratsExpirant} titre="Contrats expirant (90 j)" sous="Cliquez pour renouveler" couleur="orange" />
-            )}
-            {itemsStockBas.length > 0 && (
-              <Alerte href="/inventaire?stockBas=1" nombre={itemsStockBas.length} titre="Stock bas" sous={itemsStockBas.length === 1 ? '1 item à réapprovisionner' : `${itemsStockBas.length} items à réapprovisionner`} couleur="jaune" />
-            )}
-          </div>
-        )}
+                {/* ── Ligne 1 : alerte(s) + trésorerie ── */}
+        {(() => {
+          const alertes = [
+            stats.loyersEnRetard > 0 && <Alerte key="r" href="/paiements" nombre={stats.loyersEnRetard} titre="Loyers en retard" sous="Cliquez pour relancer" couleur="rouge" />,
+            stats.demandesEnAttente > 0 && <Alerte key="d" href="/demandes" nombre={stats.demandesEnAttente} titre="Demandes en attente" sous="Cliquez pour traiter" couleur="bleu" />,
+            stats.contratsExpirant > 0 && <Alerte key="c" href="/contrats" nombre={stats.contratsExpirant} titre="Contrats expirant (90 j)" sous="Cliquez pour renouveler" couleur="orange" />,
+            itemsStockBas.length > 0 && <Alerte key="s" href="/inventaire?stockBas=1" nombre={itemsStockBas.length} titre="Stock bas" sous={itemsStockBas.length === 1 ? '1 item à réapprovisionner' : `${itemsStockBas.length} items à réapprovisionner`} couleur="jaune" />,
+          ].filter(Boolean)
 
-        {/* ── Trésorerie ── */}
-        {tresorerie && (
-          <div className="mb-5">
-            {!tresorerie.hasSoldeInitial && (
-              <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">
-                Configurer le solde initial
-              </Link>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Tuile label="Solde brut" valeur={`${tresorerie.soldeBrut.toFixed(0)} USD`} sous="total en banque" couleur={tresorerie.soldeBrut < 0 ? 'rouge' : 'blanc'} />
-              <Tuile label="Garanties" valeur={`${tresorerie.totalGaranties.toFixed(0)} USD`} sous="à restituer aux locataires" couleur="blanc" />
-              <Tuile
-                label="Solde net"
-                valeur={`${tresorerie.soldeNet.toFixed(0)} USD`}
-                sous={tresorerie.soldeNet < 0 ? `Garanties touchées de ${Math.abs(tresorerie.soldeNet).toFixed(0)} USD` : 'réellement disponible'}
-                couleur={tresorerie.soldeNet < 0 ? 'rouge' : 'blanc'}
-              />
-            </div>
-          </div>
-        )}
+          const tuilesTreso = tresorerie ? [
+            <Tuile key="b" label="Solde brut" valeur={`${tresorerie.soldeBrut.toFixed(0)} USD`} couleur="blanc" teinte={tresorerie.soldeBrut < 0 ? 'rouge' : 'vert'} />,
+            <Tuile key="g" label="Garanties" valeur={`${tresorerie.totalGaranties.toFixed(0)} USD`} couleur="blanc" teinte="jaune" />,
+            <Tuile key="n" label="Solde net" valeur={`${tresorerie.soldeNet.toFixed(0)} USD`} couleur="blanc" teinte={tresorerie.soldeNet < 0 ? 'rouge' : 'bleu'}
+              sous={tresorerie.soldeNet < 0 ? `Garanties touchées de ${Math.abs(tresorerie.soldeNet).toFixed(0)} USD` : null} />,
+          ] : []
+
+          // 0 ou 1 alerte → tout sur une ligne ; sinon les alertes ont leur propre ligne
+          if (alertes.length <= 1) {
+            return (
+              <div className="mb-4">
+                {tresorerie && !tresorerie.hasSoldeInitial && (
+                  <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">Configurer le solde initial</Link>
+                )}
+                <div className={`grid gap-3 grid-cols-1 ${alertes.length === 1 ? 'md:grid-cols-[1.4fr_1fr_1fr_1fr]' : 'md:grid-cols-3'}`}>
+                  {alertes}
+                  {tuilesTreso}
+                </div>
+              </div>
+            )
+          }
+          return (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">{alertes}</div>
+              {tresorerie && (
+                <div className="mb-4">
+                  {!tresorerie.hasSoldeInitial && (
+                    <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">Configurer le solde initial</Link>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{tuilesTreso}</div>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* ── Indicateurs ── */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
