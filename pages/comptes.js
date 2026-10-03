@@ -11,6 +11,7 @@ import {
 } from '../lib/supabase'
 import { formatDateFR } from '../lib/dateUtils'
 import { useRouter } from 'next/router'
+import { genererReleveEpargnePDF } from '../lib/genererReleveEpargnePDF'
 
 
 const LIBELLES_TYPE = {
@@ -87,6 +88,11 @@ export default function Epargne() {
     if (error) { setErreur(error.message); return }
     setForm(null)
     await charger()
+  }
+
+    async function telechargerReleve(compte) {
+    const res = await genererReleveEpargnePDF(compte.id)
+    if (!res.success) alert('Erreur : ' + res.error)
   }
 
   async function fermer(compte) {
@@ -248,6 +254,9 @@ export default function Epargne() {
                 <div className="px-5 py-3">
                   <button onClick={() => basculerHistorique(c.id)} className="text-sm text-emerald-700 hover:underline">
                     {histoOuvert[c.id] ? 'Masquer l’historique' : 'Voir l’historique'}
+                  </button>
+                  <button onClick={() => telechargerReleve(c)} className="text-sm text-gray-600 hover:underline ml-4">
+                    Relevé PDF
                   </button>
                   {histoOuvert[c.id] && (
                     histo.length === 0 ? (

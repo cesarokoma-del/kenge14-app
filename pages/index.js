@@ -233,6 +233,9 @@ async function chargerStockBas() {
             <Tuile key="g" label="Garanties" valeur={`${tresorerie.totalGaranties.toFixed(0)} USD`} couleur="blanc" teinte="jaune" />,
             <Tuile key="n" label="Solde net" valeur={`${tresorerie.soldeNet.toFixed(0)} USD`} couleur="blanc" teinte={tresorerie.soldeNet < 0 ? 'rouge' : 'bleu'}
               sous={tresorerie.soldeNet < 0 ? `Garanties touchées de ${Math.abs(tresorerie.soldeNet).toFixed(0)} USD` : null} />,
+            <Link key="e" href="/comptes" className="block hover:opacity-90 transition">
+              <Tuile label="En épargne" valeur={`${(tresorerie.totalEnEpargne || 0).toFixed(0)} USD`} couleur="blanc" teinte="vert" />
+            </Link>,
           ] : []
 
           // 0 ou 1 alerte → tout sur une ligne ; sinon les alertes ont leur propre ligne
@@ -242,7 +245,7 @@ async function chargerStockBas() {
                 {tresorerie && !tresorerie.hasSoldeInitial && (
                   <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">Configurer le solde initial</Link>
                 )}
-                <div className={`grid gap-3 grid-cols-1 ${alertes.length === 1 ? 'md:grid-cols-[1.4fr_1fr_1fr_1fr]' : 'md:grid-cols-3'}`}>
+                <div className={`grid gap-3 grid-cols-1 ${alertes.length === 1 ? 'md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]' : 'md:grid-cols-4'}`}>
                   {alertes}
                   {tuilesTreso}
                 </div>
@@ -257,7 +260,7 @@ async function chargerStockBas() {
                   {!tresorerie.hasSoldeInitial && (
                     <Link href="/parametres" className="inline-block text-xs text-amber-700 underline mb-2">Configurer le solde initial</Link>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{tuilesTreso}</div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">{tuilesTreso}</div>
                 </div>
               )}
             </>
