@@ -138,10 +138,10 @@ export default function Epargne() {
           <div className="px-5 py-3 border-b border-gray-100 text-lg font-extrabold text-gray-800">Compte général</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
             {[
-              ['Solde brut', treso.soldeBrut, treso.soldeBrut < 0 ? 'text-red-700' : 'text-emerald-700', 'total en banque'],
+              ['Solde brut', treso.soldeBrut, treso.soldeBrut < 0 ? 'text-red-700' : 'text-emerald-700', 'trésorerie hors épargne'],
               ['Garanties', treso.totalGaranties, 'text-amber-700', 'à restituer'],
-              ['Solde net', treso.soldeNet, treso.soldeNet < 0 ? 'text-red-700' : 'text-blue-700', 'réellement disponible'],
-              ['En épargne', treso.totalEnEpargne, 'text-emerald-700', 'Benaiah + Bryan'],
+              ['Solde net', treso.soldeNet, treso.soldeNet < 0 ? 'text-red-700' : 'text-blue-700', 'trésorerie disponible'],
+              ['En épargne', treso.totalEnEpargne, 'text-emerald-700', 'fonds affectés (Benaiah + Bryan)'],
             ].map(([label, v, couleur, sous]) => (
               <div key={label}>
                 <div className="text-[13px] text-gray-600">{label}</div>
