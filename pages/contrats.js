@@ -564,7 +564,7 @@ useEffect(() => {
   if (loading) {
     return (
       <RouteGuard rolesAutorises={['bailleur']}>
-        <Layout activePage="...">
+        <Layout activePage="contrats">
         <div className="flex justify-center items-center h-64">
           <div className="text-emerald-600 text-xl">Chargement...</div>
         </div>
@@ -574,6 +574,7 @@ useEffect(() => {
   }
 
   return (
+    <RouteGuard rolesAutorises={['bailleur']}>
     <Layout activePage="contrats">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">📄 Contrats</h1>
@@ -1380,6 +1381,7 @@ useEffect(() => {
         )}
       </div>
     </Layout>
+    </RouteGuard>
   )
 }
 
