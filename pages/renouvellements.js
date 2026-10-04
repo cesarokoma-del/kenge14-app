@@ -153,7 +153,7 @@ export default function Renouvellements() {
   if (loading) {
     return (
       <RouteGuard rolesAutorises={['bailleur']}>
-        <Layout activePage="...">       
+        <Layout activePage="renouvellements">      
         <div className="flex justify-center items-center h-64">
           <div className="text-emerald-600 text-xl">Chargement...</div>
         </div>
@@ -168,6 +168,7 @@ export default function Renouvellements() {
   const nbSignes = contrats.filter(c => c.ui_statut === 'signe').length
 
   return (
+    <RouteGuard rolesAutorises={['bailleur']}>
     <Layout activePage="renouvellements">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">
@@ -356,5 +357,6 @@ export default function Renouvellements() {
         </ol>
       </div>
     </Layout>
+    </RouteGuard>
   )
 }
