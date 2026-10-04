@@ -66,7 +66,7 @@ export default function LayoutGerant({ children, activePage }) {
     {
       titre: 'Stock',
       items: [
-        { id: 'inventaire-sortie', label: 'Sortie Stock', icon: 'send', path: '/gerant/inventaire-sortie' },
+        { id: 'inventaire-sortie', label: 'Mouvements', icon: 'send', path: '/gerant/inventaire-sortie' },
       ],
     },
     {

@@ -121,9 +121,9 @@ export default function InventaireSortiePage() {
     <LayoutGerant>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-bold text-gray-900">📤 Sortie de stock</h1>
+          <h1 className="text-2xl font-bold text-gray-900">📦 Mouvements de stock</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Enregistre une sortie du dépôt (matériel utilisé, consommable distribué...)
+            Enregistre une sortie du dépôt ou un retour de matériel non utilisé
           </p>
         </div>
 
