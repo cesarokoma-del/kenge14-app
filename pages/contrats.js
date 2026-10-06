@@ -358,21 +358,20 @@ useEffect(() => {
   }
 
   async function telechargerAvenantPDF(contrat) {
-    // Récupérer le dernier renouvellement signé pour ce contrat
+    // Dernier renouvellement du contrat : signe (traite) en priorite, sinon le plus recent
     const { data: renouvellements, error } = await supabase
       .from('renouvellements')
       .select('*')
       .eq('contrat_id', contrat.id)
-      .eq('statut', 'traite')
-      .order('date_signature', { ascending: false })
-      .limit(1)
+      .order('created_at', { ascending: false })
 
     if (error || !renouvellements || renouvellements.length === 0) {
-      alert('❌ Aucun avenant signé disponible pour ce contrat.\n\nIl faut d\'abord faire signer un renouvellement depuis la page "Renouvellements".')
+      alert('❌ Aucun renouvellement pour ce contrat.\n\nCréez-en un depuis la page "Renouvellements" pour obtenir un avenant.')
       return
     }
 
-    const renouvellement = renouvellements[0]
+    const renouvellement = renouvellements.find(r => r.statut === 'traite') || renouvellements[0]
+  
 
     // Préparer les données complètes pour le PDF
     const renouvellementComplet = {
@@ -385,7 +384,8 @@ useEffect(() => {
     }
 
     const doc = genererContratRenouvellementPDF(renouvellementComplet)
-    const nomFichier = `Avenant-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Signe'}.pdf`
+    const suffixe = renouvellement.statut === 'traite' ? 'Signe' : 'Projet'
+    const nomFichier = `Avenant-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Locataire'}-${suffixe}.pdf`
     doc.save(nomFichier)
   }
 
