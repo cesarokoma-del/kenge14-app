@@ -362,7 +362,7 @@ useEffect(() => {
     const { data: renouvellements, error } = await supabase
       .from('renouvellements')
       .select('*')
-      .eq('contrat_id', contrat.id)
+      .in('contrat_id', [contrat.id, contrat.contrat_precedent_id].filter(Boolean))
       .order('created_at', { ascending: false })
 
     if (error || !renouvellements || renouvellements.length === 0) {
@@ -556,6 +556,9 @@ useEffect(() => {
     const apptOccupe = contrats.some(c => c.statut === 'actif' && c.appartement_id === a.id)
     return !apptOccupe && a.statut !== 'en_renovation'
   })
+
+  // Ids des anciens contrats qui ont un successeur (renouvellement valide)
+  const idsRenouveles = new Set(contrats.map(c => c.contrat_precedent_id).filter(Boolean))
 
   const contratsFiltres = filterStatut === 'tous'
     ? contrats
@@ -1213,7 +1216,9 @@ useEffect(() => {
                     
                     <div className="flex flex-col gap-1 items-end">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut === 'actif' ? 'bg-emerald-100 text-emerald-800' : contrat.statut === 'termine' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
-            {contrat.statut === 'actif' ? '✅ Actif' : contrat.statut === 'termine' ? '📋 Terminé' : '⛔ Résilié'}
+            {contrat.statut === 'actif' ? '✅ Actif'
+              : contrat.statut === 'termine' ? (idsRenouveles.has(contrat.id) ? '🔄 Renouvelé' : '📋 Terminé')
+              : '⛔ Résilié'}
           </span>
           {contrat.statut === 'termine' && contrat.statut_signature_decompte && (
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut_signature_decompte === 'signe_complet' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
