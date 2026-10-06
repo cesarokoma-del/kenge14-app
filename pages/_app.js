@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { getSession, onAuthChange } from '../lib/supabase'
 import '../styles/globals.css'
+import Head from 'next/head'
 
 // Routes publiques (pas besoin de login)
 const ROUTES_PUBLIQUES = [
@@ -52,20 +53,31 @@ export default function App({ Component, pageProps }) {
   // Pendant la vérif initiale, écran neutre
   if (verifAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-emerald-600 text-xl">Chargement...</div>
-      </div>
+      <>
+        <Head><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-emerald-600 text-xl">Chargement...</div>
+        </div>
+      </>
     )
   }
 
   // Si page admin et pas de session → écran d'attente (la redirection est en cours)
   if (!session && !estRoutePublique(router.pathname)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-emerald-600 text-xl">Redirection...</div>
-      </div>
+      <>
+        <Head><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-emerald-600 text-xl">Redirection...</div>
+        </div>
+      </>
     )
   }
 
-  return <Component {...pageProps} />
+    return (
+    <>
+      <Head><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+      <Component {...pageProps} />
+    </>
+  )
 }
