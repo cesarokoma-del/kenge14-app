@@ -257,7 +257,7 @@ export default function Depenses() {
 
   return (
     <Layout activePage="depenses">
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 flex-wrap gap-3">
           <h1 className="text-3xl font-bold text-gray-800">📊 Dépenses</h1>
           <div className="flex gap-2 flex-wrap">
             <button

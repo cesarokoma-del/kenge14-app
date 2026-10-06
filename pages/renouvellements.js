@@ -170,7 +170,7 @@ export default function Renouvellements() {
   return (
     <RouteGuard rolesAutorises={['bailleur']}>
     <Layout activePage="renouvellements">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-3xl font-bold text-gray-800">
           🔄 Renouvellements de Bail
         </h1>

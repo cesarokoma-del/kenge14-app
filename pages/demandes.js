@@ -167,7 +167,7 @@ export default function Demandes() {
 
   return (
     <Layout activePage="demandes">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-3xl font-bold text-gray-800">📝 Demandes de Location</h1>
         <button onClick={() => genererLienPublic()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg shadow-lg transition font-semibold">
           🔗 Générer un lien public
