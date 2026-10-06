@@ -129,7 +129,7 @@ export default function Sidebar({
       <aside
         className={`
           ${largeur} flex-shrink-0 bg-white border-r border-gray-200
-          flex flex-col h-screen sticky top-0 z-40 transition-all duration-200
+          flex flex-col h-screen top-0 z-40 transition-all duration-200
           fixed md:sticky
           ${ouvertMobile ? 'left-0' : '-left-64 md:left-0'}
         `}
