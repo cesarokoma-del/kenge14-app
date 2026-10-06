@@ -8,6 +8,7 @@ function getDestinationSelonRole(profil, role) {
   if (profil.actif === false) return '/acces-refuse'
   if (role === 'bailleur') return '/'
   if (role === 'gerant') return '/gerant/dashboard'
+  if (role === 'epargnant') return '/mon-epargne'
   return '/acces-refuse' // locataire ou rôle inconnu
 }
 
