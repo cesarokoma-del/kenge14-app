@@ -394,7 +394,7 @@ useEffect(() => {
   }
 
   async function telechargerDecompteSigne(contrat) {
-    if (contrat.statut !== 'termine') {
+    if (!['termine', 'resilie'].includes(contrat.statut)) {
       alert('Ce contrat n\'a pas encore été terminé.')
       return
     }
@@ -433,7 +433,7 @@ useEffect(() => {
   }
 
   async function telechargerAccordResiliationSigne(contrat) {
-    if (contrat.statut !== 'termine') {
+    if (!['termine', 'resilie'].includes(contrat.statut)) {
       alert('Ce contrat n\'a pas encore été terminé.')
       return
     }
@@ -1224,13 +1224,13 @@ useEffect(() => {
               : contrat.statut === 'termine' ? (idsRenouveles.has(contrat.id) ? '🔄 Renouvelé' : '📋 Terminé')
               : '⛔ Résilié'}
           </span>
-          {contrat.statut === 'termine' && contrat.statut_signature_decompte && (
+          {['termine', 'resilie'].includes(contrat.statut) && contrat.statut_signature_decompte && (
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut_signature_decompte === 'signe_complet' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
               {contrat.statut_signature_decompte === 'signe_complet' ? '✍️ Décompte signé' : '⏳ En attente locataire'}
             </span>
           )}
 
-          {contrat.statut === 'termine' && contrat.statut_signature_resiliation && (
+          {['termine', 'resilie'].includes(contrat.statut) && contrat.statut_signature_resiliation && (
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${contrat.statut_signature_resiliation === 'signe_complet' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'}`}>
               {contrat.statut_signature_resiliation === 'signe_complet' ? '📜 Accord résilié' : '⏳ Accord en attente'}
             </span>
@@ -1286,7 +1286,7 @@ useEffect(() => {
                       📜
                     </button>
 
-                    {contrat.statut === 'termine' && contrat.statut_signature_decompte && (
+                    {['termine', 'resilie'].includes(contrat.statut) && contrat.statut_signature_decompte && (
                       <button
                       onClick={() => telechargerDecompteSigne(contrat)}
                       title={contrat.statut_signature_decompte === 'signe_complet' ? 'Télécharger le décompte signé' : 'Télécharger le décompte (en attente locataire)'}
@@ -1296,7 +1296,7 @@ useEffect(() => {
                         </button>
                       )}
 
-                      {contrat.statut === 'termine' && contrat.statut_signature_resiliation && (
+                      {['termine', 'resilie'].includes(contrat.statut) && contrat.statut_signature_resiliation && (
                       <button
                         onClick={() => telechargerAccordResiliationSigne(contrat)}
                         title={contrat.statut_signature_resiliation === 'signe_complet' ? 'Télécharger l\'accord de résiliation signé' : 'Télécharger l\'accord (en attente locataire)'}
@@ -1353,7 +1353,7 @@ useEffect(() => {
                     >
                       📋
                     </button>
-                    {contrat.statut === 'termine' && (
+                    {['termine', 'resilie'].includes(contrat.statut) && (
                       <button
                         onClick={() => {
                           const statut = etatsLieuxParContrat[contrat.id]?.sortie?.statut
