@@ -293,7 +293,11 @@ useEffect(() => {
     const { error: errorUpdate } = await supabase
       .from('contrats')
       .update({
-        statut: terminerData.raison_fin === 'resiliation' ? 'resilie' : 'termine',
+        // Resiliation si la fin effective precede la fin prevue, sinon fin normale
+        statut: (terminerData.raison_fin === 'resiliation'
+                 || (terminerData.date_fin_effective && showTerminerModal.date_fin
+                     && terminerData.date_fin_effective < showTerminerModal.date_fin))
+          ? 'resilie' : 'termine',
         date_fin_effective: terminerData.date_fin_effective,
         raison_fin: terminerData.raison_fin,
         notes_fin: terminerData.notes_fin || null,
