@@ -15,6 +15,20 @@ import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureD
 import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
 import { chargerEtatLieuxParContrat } from '../lib/etatsLieux'
 
+// Colonnes de la liste des contrats : tout SAUF les 5 colonnes signature_* (images base64,
+// ~17 Ko par contrat). Elles sont rechargees a la demande par chargerSignatures().
+const COLONNES_CONTRAT_LISTE = `
+  id, appartement_id, locataire_id, date_debut, date_fin, duree_mois, loyer, garantie,
+  occupants, clauses_speciales, statut, created_at, date_fin_effective, raison_fin, notes_fin,
+  date_signature_bailleur, date_signature_locataire, lien_signature_initial, statut_signature,
+  degats_constates, loyers_impayes_calcule, surplus_credit_calcule, reliquat_garantie,
+  decompte_genere_le, date_signature_decompte_bailleur, date_signature_decompte_locataire,
+  lien_signature_decompte, statut_signature_decompte, date_etat_lieux_sortie,
+  heure_etat_lieux_sortie, date_signature_resiliation_bailleur,
+  date_signature_resiliation_locataire, lien_signature_resiliation,
+  statut_signature_resiliation, contrat_precedent_id
+`.replace(/\s+/g, '')
+
 export default function Contrats() {
   const router = useRouter()
   const [contrats, setContrats] = useState([])
@@ -119,21 +133,16 @@ useEffect(() => {
   async function chargerDonnees() {
     setLoading(true)
 
-    // Charger les contrats SANS jointure
-    const { data: contratsData } = await supabase
-      .from('contrats')
-      .select('*')
-      .order('date_debut', { ascending: false })
-
-    const { data: apptsData } = await supabase
-      .from('appartements')
-      .select('*')
-      .order('nom')
-
-    const { data: locatairesData } = await supabase
-      .from('locataires')
-      .select('*')
-      .order('noms_complet')
+    // Charger les contrats SANS jointure, sans signatures, les trois requetes en parallele
+    const [
+      { data: contratsData },
+      { data: apptsData },
+      { data: locatairesData },
+    ] = await Promise.all([
+      supabase.from('contrats').select(COLONNES_CONTRAT_LISTE).order('date_debut', { ascending: false }),
+      supabase.from('appartements').select('*').order('nom'),
+      supabase.from('locataires').select('*').order('noms_complet'),
+    ])
 
     // Jointure manuelle côté client
     const contratsAvecRelations = (contratsData || []).map(c => ({
@@ -393,6 +402,16 @@ useEffect(() => {
     doc.save(nomFichier)
   }
 
+  // Recharge les 5 colonnes signature_* d'un contrat (exclues de la liste pour alleger)
+  async function chargerSignatures(contrat) {
+    const { data } = await supabase
+      .from('contrats')
+      .select('signature_bailleur, signature_locataire, signature_decompte_bailleur, signature_decompte_locataire, signature_resiliation_locataire')
+      .eq('id', contrat.id)
+      .single()
+    return { ...contrat, ...(data || {}) }
+  }
+
   async function telechargerDecompteSigne(contrat) {
     if (!['termine', 'resilie'].includes(contrat.statut)) {
       alert('Ce contrat n\'a pas encore été terminé.')
@@ -402,6 +421,7 @@ useEffect(() => {
       alert('Aucun décompte de fin n\'a été initié pour ce contrat.')
       return
     }
+    contrat = await chargerSignatures(contrat)
 
     // Charger les paramètres bailleur
     const { data: paramsBailleur } = await supabase
@@ -442,6 +462,8 @@ useEffect(() => {
       return
     }
 
+    contrat = await chargerSignatures(contrat)
+
     // Charger les paramètres bailleur
     const { data: paramsBailleur } = await supabase
       .from('parametres')
@@ -462,12 +484,14 @@ useEffect(() => {
     doc.save(`Accord-Resiliation-${nomLocataire}-${dateFin}-${suffix}.pdf`)
   }
 
-  function telechargerContratInitialPDF(contrat) {
+  async function telechargerContratInitialPDF(contrat) {
+    contrat = await chargerSignatures(contrat)
     const doc = genererContratInitialPDF(contrat)
     const nomFichier = `Contrat-Bail-${contrat.appartement?.nom || 'KENGE14'}-${contrat.locataire?.noms_complet || 'Vierge'}.pdf`
     doc.save(nomFichier)
   }
   async function lancerSignatureContrat(contrat) {
+    contrat = await chargerSignatures(contrat)
     // Vérifier l'état actuel
     const dejaSigneBailleur = !!contrat.signature_bailleur
     const dejaSigneLocataire = !!contrat.signature_locataire
