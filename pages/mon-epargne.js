@@ -4,6 +4,7 @@ import RouteGuard, { viderCacheAcces } from '../components/RouteGuard'
 import { getProfilUtilisateur, getComptesEpargne, getMouvementsEpargne, signOut } from '../lib/supabase'
 import { formatDateFR } from '../lib/dateUtils'
 import { genererReleveEpargnePDF } from '../lib/genererReleveEpargnePDF'
+import GraphiqueSolde from '../components/GraphiqueSolde'
 
 const LIBELLES = {
   depot: { texte: 'Dépôt', signe: '+', classe: 'text-emerald-700' },
@@ -117,6 +118,8 @@ function MonEpargne() {
                 Relevé PDF
               </button>
             </section>
+
+            <GraphiqueSolde mouvements={mouvements} soldeActuel={compte.solde} />
 
             {/* Historique */}
             <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
