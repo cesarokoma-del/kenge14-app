@@ -13,7 +13,7 @@ import { genererContratRenouvellementPDF } from '../lib/genererContratPDF'
 import { genererContratInitialPDF } from '../lib/genererContratInitialPDF'
 import { signerContratCommeBailleur, creerLienSignatureBail, creerLienSignatureDecompte, getSignatureBailleur, creerLienSignatureResiliation, signerResiliationCommeLocataire } from '../lib/supabase'
 import { formatDateFR, parseDateLocale } from '../lib/dateUtils'
-import { chargerEtatLieuxParContrat } from '../lib/etatsLieux'
+import { chargerEtatsLieuxParContrats } from '../lib/etatsLieux'
 
 // Colonnes de la liste des contrats : tout SAUF les 5 colonnes signature_* (images base64,
 // ~17 Ko par contrat). Elles sont rechargees a la demande par chargerSignatures().
@@ -157,20 +157,9 @@ useEffect(() => {
 
     // Charger les états des lieux pour tous les contrats en parallèle
     // Map { contratId: { entree, sortie } } — null si pas encore créé
-    if (contratsAvecRelations.length > 0) {
-      const chargements = await Promise.all(
-        contratsAvecRelations.flatMap(c => [
-          chargerEtatLieuxParContrat(c.id, 'entree').then(r => ({ contratId: c.id, type: 'entree', data: r.data })),
-          chargerEtatLieuxParContrat(c.id, 'sortie').then(r => ({ contratId: c.id, type: 'sortie', data: r.data })),
-        ])
-      )
-      const map = {}
-      for (const { contratId, type, data } of chargements) {
-        if (!map[contratId]) map[contratId] = { entree: null, sortie: null }
-        map[contratId][type] = data
-      }
-      setEtatsLieuxParContrat(map)
-    }
+    setEtatsLieuxParContrat(
+      await chargerEtatsLieuxParContrats(contratsAvecRelations.map(c => c.id))
+    )
 
     setLoading(false)
   }
